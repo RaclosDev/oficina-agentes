@@ -162,12 +162,15 @@ const server = createServer(async (req, res) => {
     // siempre pide confirmación cuando una sesión se archiva o se elimina a sí misma.
     // Si en 8 s ninguna otra la ha recogido, se le entrega igualmente.
     const self = url.searchParams.get('self') ?? ''
+    // Cada mod dice qué acciones sabe hacer (?can=…); uno antiguo no lo dice y solo
+    // recibe las de siempre, así no se pierde lo que no entiende.
+    const can = new Set((url.searchParams.get('can') ?? 'archive,stop,delete').split(','))
     const now = Date.now()
     const out = []
     const keep = []
     for (const a of actions) {
       const age = now - Number(String(a.id).split('-')[0])
-      if (a.sessionId !== self || age > 8_000) out.push(a)
+      if (can.has(a.action) && (a.sessionId !== self || age > 8_000)) out.push(a)
       else keep.push(a)
     }
     actions = keep

@@ -508,7 +508,8 @@ async function pollActions($: Engine) {
   polling = true
   try {
     // Con «self», el servidor deja las acciones sobre esta sesión para otra sesión.
-    const res = await $.http.fetch(`${SERVER}/api/actions?self=${encodeURIComponent(selfId)}`, {
+    const can = [...Object.keys(ACTION_TOOLS), ...Object.keys(SIDEBAR_TOOLS)].join(',')
+    const res = await $.http.fetch(`${SERVER}/api/actions?self=${encodeURIComponent(selfId)}&can=${can}`, {
       headers: { 'x-oficina': '1' },
     })
     if (!res.ok) return
