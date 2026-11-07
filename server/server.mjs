@@ -13,7 +13,9 @@ const here = dirname(fileURLToPath(import.meta.url))
 
 const SESSION_LINK = /^claude:\/\/claude\.ai\/epitaxy\/local_[0-9a-f-]{36}$/
 const SESSION_ID = /^local_[0-9a-f-]{36}$/
-const ACTIONS = new Set(['archive', 'stop', 'delete'])
+const ACTIONS = new Set(['archive', 'stop', 'delete', 'pin', 'unpin', 'rename', 'move', 'unread'])
+const GROUP_ID = /^[\w-]{1,80}$/
+const NEW_CHAT = 'claude://claude.ai/epitaxy/new'
 let actions = []
 
 let snapshot ={ desks: [], updatedAt: 0 }
@@ -108,7 +110,8 @@ const server = createServer(async (req, res) => {
         for (const k of ['onScreen', 'focused', 'pinned']) if (out[k] === undefined && prev[k] !== undefined) out[k] = prev[k]
         return out
       })
-      snapshot = { desks, updatedAt: Date.now() }
+      const groups = Array.isArray(parsed.groups) ? parsed.groups : snapshot.groups ?? []
+      snapshot = { desks, groups, updatedAt: Date.now() }
       broadcast()
       return send(res, 204, '')
     } catch {
@@ -135,8 +138,19 @@ const server = createServer(async (req, res) => {
     if (!ACTIONS.has(action) || !SESSION_ID.test(String(sessionId))) {
       return send(res, 400, '{"error":"bad action"}')
     }
+    // Datos extra según la acción: el nuevo título o el grupo de destino (null = sin grupo).
+    const extra = {}
+    if (action === 'rename') {
+      const title = String(parsed.title ?? '').replace(/[\u0000-\u001f]/g, ' ').trim()
+      if (!title || title.length > 120) return send(res, 400, '{"error":"bad title"}')
+      extra.title = title
+    }
+    if (action === 'move') {
+      if (parsed.groupId !== null && !GROUP_ID.test(String(parsed.groupId))) return send(res, 400, '{"error":"bad group"}')
+      extra.groupId = parsed.groupId
+    }
     if (!actions.some(a => a.action === action && a.sessionId === sessionId)) {
-      actions.push({ id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, action, sessionId })
+      actions.push({ id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, action, sessionId, ...extra })
       if (actions.length > 20) actions.shift()
     }
     return send(res, 202, '{"queued":true}')
@@ -240,7 +254,7 @@ const server = createServer(async (req, res) => {
     } catch {
       return send(res, 400, '{"error":"bad json"}')
     }
-    if (!SESSION_LINK.test(link)) return send(res, 400, '{"error":"not a session link"}')
+    if (!SESSION_LINK.test(link) && link !== NEW_CHAT) return send(res, 400, '{"error":"not a session link"}')
     const [cmd, args] =
       process.platform === 'win32'
         ? ['rundll32.exe', ['url.dll,FileProtocolHandler', link]]

@@ -54,7 +54,6 @@
     background: var(--panel);
     border: 1px solid var(--line);
     border-radius: 10px;
-    overflow: hidden;
     cursor: pointer;
     transition: transform 0.12s ease, border-color 0.12s ease;
   }
@@ -84,6 +83,39 @@
   .search[hidden] { display: none; }
   .card.nolink:hover { transform: none; }
   .card svg { display: block; width: 100%; height: auto; }
+  /* Foto del agente con el menú ⋯ arriba a la izquierda y el estado encima, abajo. */
+  .pic { position: relative; overflow: hidden; border-radius: 9px 9px 0 0; }
+  .more {
+    position: absolute; top: 4px; inset-inline-start: 4px; z-index: 2;
+    font: inherit; font-size: 13px; line-height: 1; padding: 3px 7px; cursor: pointer;
+    color: var(--ink); background: rgba(28, 29, 38, 0.78); border: 1px solid var(--line); border-radius: 6px;
+  }
+  .more:hover, .more[aria-expanded='true'] { border-color: var(--accent); }
+  .pill {
+    position: absolute; bottom: 4px; inset-inline-start: 4px; max-width: calc(100% - 8px);
+    display: inline-flex; align-items: center; gap: 5px; padding: 2px 7px;
+    font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    color: var(--ink); background: rgba(28, 29, 38, 0.82); border-radius: 999px;
+  }
+  .working .pill { color: var(--work); }
+  .dropdown {
+    position: absolute; top: 30px; inset-inline-start: 4px; z-index: 30; min-width: 200px;
+    display: grid; padding: 4px; gap: 1px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+  }
+  .mi {
+    font: inherit; font-size: 12px; text-align: start; padding: 6px 8px; cursor: pointer;
+    color: var(--ink); background: transparent; border: 0; border-radius: 5px;
+  }
+  .mi:hover, .mi:focus-visible { background: var(--bg); }
+  .mi:disabled { opacity: 0.35; cursor: not-allowed; background: transparent; }
+  .mi.danger { color: var(--danger); }
+  .mi.sub { padding-inline-start: 18px; }
+  .mlabel { font-size: 10px; color: var(--dim); padding: 6px 8px 2px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .msep { height: 1px; background: var(--line); margin: 3px 2px; }
+  .newchat span { margin-inline-start: 4px; }
+  .compact .newchat span { display: none; }
   .info { padding: 8px 10px 10px; display: grid; gap: 2px; min-width: 0; }
   .title { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .meta { color: var(--dim); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -142,7 +174,11 @@
   .compact .chips { margin-bottom: 6px; }
   .compact .grid { grid-template-columns: 1fr; gap: 6px; }
   .compact .card { flex-direction: row; align-items: center; }
-  .compact .card svg { width: 64px; flex: none; }
+  .compact .card svg { width: 100%; }
+  .compact .pic { width: 84px; flex: none; border-radius: 9px 0 0 9px; align-self: stretch; display: flex; align-items: center; background: #d8c3a5; }
+  .compact .pill { font-size: 9px; padding: 1px 5px; gap: 3px; bottom: 3px; inset-inline-start: 3px; }
+  .compact .pill .dot { width: 6px; height: 6px; }
+  .compact .more { top: 3px; inset-inline-start: 3px; font-size: 11px; padding: 2px 5px; }
   .compact .info { padding: 4px 8px; }
   .compact .actions { margin-top: 3px; }
   .compact .act span { display: none; }
@@ -152,6 +188,8 @@
     .compact .grid { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
     .compact .card { flex-direction: column; align-items: stretch; }
     .compact .card svg { width: 100%; }
+    .compact .pic { width: auto; border-radius: 9px 9px 0 0; display: block; }
+    .compact .pill { font-size: 11px; padding: 2px 7px; }
     .compact .info { padding: 8px 10px 10px; }
     .compact .act span { display: inline; }
     .compact .confirm { flex-direction: column; justify-content: center; text-align: center; }
@@ -180,6 +218,7 @@
     <h1 data-t="title"></h1>
     <span class="count" id="count"></span>
     <div class="settings">
+      <button class="tool newchat" id="newchat" type="button" data-t-title="newChat">＋<span data-t="newChat"></span></button>
       <button class="tool gear" id="gear" type="button" aria-haspopup="true" aria-expanded="false" data-t-title="lang">⚙</button>
       <button class="tool fold" id="fold" type="button" aria-expanded="true">▾</button>
       <div class="menu" id="menu" hidden>
@@ -201,28 +240,28 @@
   // Orden: title, working, paused, float, floatTip, hint, connecting, reconnecting, noData, waiting,
   // away, stWorking, stPaused, archive, stop, confirmArchive, confirmStop, queued, done, failed,
   // all, notify, finished, self, lang
-  const KEYS = ['title','working','paused','float','floatTip','hint','connecting','reconnecting','noData','waiting','away','stWorking','stPaused','archive','stop','confirmArchive','confirmStop','queued','done','failed','all','notify','finished','self','lang','permHint','delete','confirmDelete','theme','archived','fold','unfold','onScreen','unread','pinned','noGroup','search','actEdit','actRun','actRead','actWeb','actAgent','actBrowser','actTool']
+  const KEYS = ['title','working','paused','float','floatTip','hint','connecting','reconnecting','noData','waiting','away','stWorking','stPaused','archive','stop','confirmArchive','confirmStop','queued','done','failed','all','notify','finished','self','lang','permHint','delete','confirmDelete','theme','archived','fold','unfold','onScreen','unread','pinned','noGroup','search','actEdit','actRun','actRead','actWeb','actAgent','actBrowser','actTool','newChat','open','pin','unpin','rename','renamePrompt','moveTo','markUnread','more']
   const LANGS = {
-    es: ['Español', ['Oficina','{n} trabajando','{n} en pausa','Flotar','Ventana flotante siempre encima','Pulsa una tarjeta para ir a esa sesión.','Conectando…','Reconectando…','Sin datos todavía','Esperando a que Claude envíe tus sesiones…','La oficina está en la ventana flotante.','Trabajando','En pausa','Archivar','Detener','¿Archivar «{t}»?','¿Detener lo que está haciendo «{t}»?','Enviado. Puede que la app te pida confirmarlo.','Hecho','No se pudo','Todos','Avisarme cuando una termine','«{t}» ha terminado','Esta sesión','Idioma','Falta permiso. Añade esta regla a permissions.allow en ~/.claude/settings.json:','Eliminar','¿Eliminar «{t}» para siempre? No se puede deshacer.','Cambiar decoración','Se ha archivado «{t}»','Plegar','Desplegar','En pantalla','Nuevo','Fijadas','Sin grupo','Buscar…','Editando archivos','Ejecutando comandos','Leyendo código','Buscando en la web','Con un subagente','Usando el navegador','Usando {t}']],
-    en: ['English', ['Office','{n} working','{n} idle','Float','Floating window that stays on top','Click a card to jump to that session.','Connecting…','Reconnecting…','No data yet','Waiting for Claude to send your sessions…','The office is in the floating window.','Working','Idle','Archive','Stop','Archive “{t}”?','Stop what “{t}” is doing?','Sent. The app may ask you to confirm.','Done','Couldn’t do it','All','Notify me when one finishes','“{t}” has finished','This session','Language','Missing permission. Add this rule to permissions.allow in ~/.claude/settings.json:','Delete','Delete “{t}” for good? This can’t be undone.','Change decor','“{t}” has been archived','Collapse','Expand','On screen','New','Pinned','No group','Search…','Editing files','Running commands','Reading code','Searching the web','With a subagent','Using the browser','Using {t}']],
-    zh: ['中文', ['办公室','{n} 个工作中','{n} 个空闲','悬浮','始终置顶的悬浮窗口','点击卡片即可跳转到该会话。','正在连接…','正在重新连接…','暂无数据','正在等待 Claude 发送你的会话…','办公室已在悬浮窗口中。','工作中','空闲','归档','停止','归档“{t}”？','停止“{t}”正在做的事？','已发送，应用可能会请你确认。','完成','无法完成','全部','有会话完成时通知我','“{t}”已完成','当前会话','语言','缺少权限。请将此规则添加到 ~/.claude/settings.json 的 permissions.allow 中：','删除','永久删除“{t}”？此操作无法撤销。','更换装饰','已归档“{t}”','收起','展开','屏幕上','新','已置顶','未分组','搜索…','正在编辑文件','正在运行命令','正在阅读代码','正在网上搜索','子代理工作中','正在使用浏览器','正在使用 {t}']],
-    hi: ['हिन्दी', ['ऑफ़िस','{n} काम कर रहे','{n} खाली','फ़्लोट','हमेशा ऊपर रहने वाली फ़्लोटिंग विंडो','उस सत्र पर जाने के लिए कार्ड पर क्लिक करें।','कनेक्ट हो रहा है…','फिर से कनेक्ट हो रहा है…','अभी कोई डेटा नहीं','Claude के आपके सत्र भेजने की प्रतीक्षा…','ऑफ़िस फ़्लोटिंग विंडो में है।','काम कर रहा है','खाली','संग्रहित करें','रोकें','“{t}” को संग्रहित करें?','“{t}” जो कर रहा है उसे रोकें?','भेजा गया। ऐप पुष्टि माँग सकता है।','हो गया','नहीं हो सका','सभी','किसी के पूरा होने पर सूचित करें','“{t}” पूरा हो गया','यह सत्र','भाषा','अनुमति नहीं है। यह नियम ~/.claude/settings.json में permissions.allow में जोड़ें:','हटाएँ','“{t}” को हमेशा के लिए हटाएँ? इसे पूर्ववत नहीं किया जा सकता।','सजावट बदलें','“{t}” संग्रहित कर दिया गया','समेटें','फैलाएँ','स्क्रीन पर','नया','पिन किए गए','बिना समूह','खोजें…','फ़ाइलें संपादित कर रहा है','कमांड चला रहा है','कोड पढ़ रहा है','वेब पर खोज रहा है','सब-एजेंट के साथ','ब्राउज़र इस्तेमाल कर रहा है','{t} इस्तेमाल कर रहा है']],
-    fr: ['Français', ['Bureau','{n} au travail','{n} en pause','Flotter','Fenêtre flottante toujours au premier plan','Cliquez sur une carte pour ouvrir cette session.','Connexion…','Reconnexion…','Pas encore de données','En attente des sessions envoyées par Claude…','Le bureau est dans la fenêtre flottante.','Au travail','En pause','Archiver','Arrêter','Archiver « {t} » ?','Arrêter ce que fait « {t} » ?','Envoyé. L’app peut vous demander de confirmer.','Fait','Impossible','Toutes','Me prévenir quand une session termine','« {t} » a terminé','Cette session','Langue','Autorisation manquante. Ajoutez cette règle à permissions.allow dans ~/.claude/settings.json :','Supprimer','Supprimer « {t} » définitivement ? Action irréversible.','Changer le décor','« {t} » a été archivée','Replier','Déplier','À l’écran','Nouveau','Épinglées','Sans groupe','Rechercher…','Modifie des fichiers','Exécute des commandes','Lit le code','Cherche sur le web','Avec un sous-agent','Utilise le navigateur','Utilise {t}']],
-    ar: ['العربية', ['المكتب','{n} تعمل','{n} متوقفة','تعويم','نافذة عائمة تبقى في الأعلى دائمًا','انقر على بطاقة للانتقال إلى تلك الجلسة.','جارٍ الاتصال…','جارٍ إعادة الاتصال…','لا توجد بيانات بعد','في انتظار أن يرسل Claude جلساتك…','المكتب في النافذة العائمة.','تعمل','متوقفة','أرشفة','إيقاف','أرشفة «{t}»؟','إيقاف ما تفعله «{t}»؟','تم الإرسال. قد يطلب منك التطبيق التأكيد.','تم','تعذّر التنفيذ','الكل','نبّهني عند انتهاء جلسة','انتهت «{t}»','هذه الجلسة','اللغة','الإذن مفقود. أضف هذه القاعدة إلى permissions.allow في ~/.claude/settings.json:','حذف','حذف «{t}» نهائيًا؟ لا يمكن التراجع عن ذلك.','تغيير الديكور','تمت أرشفة «{t}»','طيّ','توسيع','على الشاشة','جديد','مثبّتة','بلا مجموعة','بحث…','يحرّر ملفات','ينفّذ أوامر','يقرأ الشيفرة','يبحث في الويب','مع وكيل فرعي','يستخدم المتصفح','يستخدم {t}']],
-    bn: ['বাংলা', ['অফিস','{n}টি কাজ করছে','{n}টি বিরতিতে','ভাসমান','সবসময় উপরে থাকা ভাসমান উইন্ডো','সেই সেশনে যেতে একটি কার্ডে ক্লিক করুন।','সংযোগ হচ্ছে…','আবার সংযোগ হচ্ছে…','এখনও কোনো ডেটা নেই','Claude আপনার সেশন পাঠানোর অপেক্ষায়…','অফিসটি ভাসমান উইন্ডোতে আছে।','কাজ করছে','বিরতিতে','আর্কাইভ','থামান','“{t}” আর্কাইভ করবেন?','“{t}” যা করছে তা থামাবেন?','পাঠানো হয়েছে। অ্যাপ নিশ্চিত করতে বলতে পারে।','সম্পন্ন','করা যায়নি','সব','কোনোটি শেষ হলে জানান','“{t}” শেষ হয়েছে','এই সেশন','ভাষা','অনুমতি নেই। ~/.claude/settings.json-এর permissions.allow-এ এই নিয়মটি যোগ করুন:','মুছুন','“{t}” চিরতরে মুছবেন? এটি আর ফেরানো যাবে না।','সাজসজ্জা বদলান','“{t}” আর্কাইভ করা হয়েছে','গুটিয়ে নিন','প্রসারিত করুন','স্ক্রিনে','নতুন','পিন করা','গোষ্ঠী নেই','খুঁজুন…','ফাইল সম্পাদনা করছে','কমান্ড চালাচ্ছে','কোড পড়ছে','ওয়েবে খুঁজছে','সাব-এজেন্টের সাথে','ব্রাউজার ব্যবহার করছে','{t} ব্যবহার করছে']],
-    pt: ['Português', ['Escritório','{n} trabalhando','{n} em pausa','Flutuar','Janela flutuante sempre por cima','Clique num cartão para ir para essa sessão.','Conectando…','Reconectando…','Ainda sem dados','Aguardando o Claude enviar suas sessões…','O escritório está na janela flutuante.','Trabalhando','Em pausa','Arquivar','Parar','Arquivar “{t}”?','Parar o que “{t}” está fazendo?','Enviado. O app pode pedir confirmação.','Feito','Não foi possível','Todas','Avisar quando uma terminar','“{t}” terminou','Esta sessão','Idioma','Falta permissão. Adicione esta regra a permissions.allow em ~/.claude/settings.json:','Excluir','Excluir “{t}” para sempre? Não dá para desfazer.','Mudar decoração','“{t}” foi arquivada','Recolher','Expandir','Na tela','Novo','Fixadas','Sem grupo','Pesquisar…','Editando arquivos','Executando comandos','Lendo código','Pesquisando na web','Com um subagente','Usando o navegador','Usando {t}']],
-    ru: ['Русский', ['Офис','{n} работают','{n} на паузе','Поверх окон','Плавающее окно поверх всех окон','Нажмите на карточку, чтобы открыть сессию.','Подключение…','Переподключение…','Данных пока нет','Ждём, пока Claude пришлёт ваши сессии…','Офис открыт в плавающем окне.','Работает','На паузе','В архив','Остановить','Архивировать «{t}»?','Остановить то, что делает «{t}»?','Отправлено. Приложение может попросить подтверждение.','Готово','Не удалось','Все','Сообщать, когда сессия завершится','«{t}» завершена','Эта сессия','Язык','Нет разрешения. Добавьте это правило в permissions.allow в ~/.claude/settings.json:','Удалить','Удалить «{t}» навсегда? Это нельзя отменить.','Сменить оформление','«{t}» перемещена в архив','Свернуть','Развернуть','На экране','Новое','Закреплённые','Без группы','Поиск…','Редактирует файлы','Выполняет команды','Читает код','Ищет в интернете','С субагентом','Работает в браузере','Использует {t}']],
-    ur: ['اردو', ['دفتر','{n} کام میں','{n} رکے ہوئے','تیرتی ونڈو','ہمیشہ اوپر رہنے والی تیرتی ونڈو','اس سیشن پر جانے کے لیے کارڈ پر کلک کریں۔','جڑ رہا ہے…','دوبارہ جڑ رہا ہے…','ابھی کوئی ڈیٹا نہیں','Claude کے آپ کے سیشن بھیجنے کا انتظار…','دفتر تیرتی ونڈو میں ہے۔','کام میں','رکا ہوا','آرکائیو','روکیں','«{t}» آرکائیو کریں؟','«{t}» جو کر رہا ہے اسے روکیں؟','بھیج دیا۔ ایپ تصدیق مانگ سکتی ہے۔','ہو گیا','نہیں ہو سکا','سب','کسی کے ختم ہونے پر مطلع کریں','«{t}» ختم ہو گیا','یہ سیشن','زبان','اجازت نہیں ہے۔ یہ اصول ~/.claude/settings.json میں permissions.allow میں شامل کریں:','حذف کریں','«{t}» ہمیشہ کے لیے حذف کریں؟ یہ واپس نہیں ہو سکتا۔','سجاوٹ بدلیں','«{t}» آرکائیو کر دیا گیا','سمیٹیں','پھیلائیں','اسکرین پر','نیا','پن شدہ','بغیر گروپ','تلاش…','فائلیں ترمیم کر رہا ہے','کمانڈز چلا رہا ہے','کوڈ پڑھ رہا ہے','ویب پر تلاش کر رہا ہے','ذیلی ایجنٹ کے ساتھ','براؤزر استعمال کر رہا ہے','{t} استعمال کر رہا ہے']],
-    id: ['Bahasa Indonesia', ['Kantor','{n} bekerja','{n} jeda','Melayang','Jendela melayang yang selalu di atas','Klik kartu untuk membuka sesi itu.','Menghubungkan…','Menghubungkan ulang…','Belum ada data','Menunggu Claude mengirim sesi Anda…','Kantor ada di jendela melayang.','Bekerja','Jeda','Arsipkan','Hentikan','Arsipkan “{t}”?','Hentikan yang sedang dikerjakan “{t}”?','Terkirim. Aplikasi mungkin meminta konfirmasi.','Selesai','Gagal','Semua','Beri tahu saat ada yang selesai','“{t}” telah selesai','Sesi ini','Bahasa','Izin belum ada. Tambahkan aturan ini ke permissions.allow di ~/.claude/settings.json:','Hapus','Hapus “{t}” selamanya? Tidak bisa dibatalkan.','Ganti dekorasi','“{t}” telah diarsipkan','Ciutkan','Bentangkan','Di layar','Baru','Disematkan','Tanpa grup','Cari…','Mengedit berkas','Menjalankan perintah','Membaca kode','Mencari di web','Dengan subagen','Memakai peramban','Memakai {t}']],
-    de: ['Deutsch', ['Büro','{n} arbeiten','{n} pausiert','Schweben','Schwebendes Fenster, immer im Vordergrund','Klicke auf eine Karte, um die Sitzung zu öffnen.','Verbinde…','Verbinde erneut…','Noch keine Daten','Warte darauf, dass Claude deine Sitzungen sendet…','Das Büro ist im schwebenden Fenster.','Arbeitet','Pausiert','Archivieren','Stoppen','„{t}“ archivieren?','Stoppen, was „{t}“ gerade macht?','Gesendet. Die App fragt eventuell nach.','Erledigt','Hat nicht geklappt','Alle','Benachrichtigen, wenn eine fertig ist','„{t}“ ist fertig','Diese Sitzung','Sprache','Berechtigung fehlt. Füge diese Regel zu permissions.allow in ~/.claude/settings.json hinzu:','Löschen','„{t}“ endgültig löschen? Das lässt sich nicht rückgängig machen.','Deko ändern','„{t}“ wurde archiviert','Einklappen','Ausklappen','Auf dem Bildschirm','Neu','Angeheftet','Ohne Gruppe','Suchen…','Bearbeitet Dateien','Führt Befehle aus','Liest Code','Sucht im Web','Mit einem Subagenten','Nutzt den Browser','Nutzt {t}']],
-    ja: ['日本語', ['オフィス','作業中 {n}','待機中 {n}','フロート','常に最前面に表示されるフローティングウィンドウ','カードをクリックするとそのセッションに移動します。','接続中…','再接続中…','まだデータがありません','Claude がセッションを送るのを待っています…','オフィスはフローティングウィンドウにあります。','作業中','待機中','アーカイブ','停止','「{t}」をアーカイブしますか？','「{t}」の作業を停止しますか？','送信しました。アプリが確認を求めることがあります。','完了','できませんでした','すべて','終わったら通知する','「{t}」が完了しました','このセッション','言語','権限がありません。~/.claude/settings.json の permissions.allow にこのルールを追加してください:','削除','「{t}」を完全に削除しますか？元に戻せません。','内装を変更','「{t}」をアーカイブしました','折りたたむ','展開','表示中','新着','ピン留め','グループなし','検索…','ファイルを編集中','コマンドを実行中','コードを読んでいます','ウェブを検索中','サブエージェントと作業中','ブラウザを使用中','{t} を使用中']],
-    mr: ['मराठी', ['ऑफिस','{n} काम करत आहेत','{n} थांबलेले','फ्लोट','नेहमी वर राहणारी फ्लोटिंग विंडो','त्या सत्रावर जाण्यासाठी कार्डवर क्लिक करा.','जोडत आहे…','पुन्हा जोडत आहे…','अजून डेटा नाही','Claude तुमची सत्रे पाठवण्याची वाट पाहत आहे…','ऑफिस फ्लोटिंग विंडोमध्ये आहे.','काम करत आहे','थांबलेले','संग्रहित करा','थांबवा','“{t}” संग्रहित करायचे?','“{t}” जे करत आहे ते थांबवायचे?','पाठवले. ॲप पुष्टी मागू शकते.','झाले','जमले नाही','सर्व','एखादे संपल्यावर कळवा','“{t}” पूर्ण झाले','हे सत्र','भाषा','परवानगी नाही. ~/.claude/settings.json मधील permissions.allow मध्ये हा नियम जोडा:','हटवा','“{t}” कायमचे हटवायचे? हे पूर्ववत करता येणार नाही.','सजावट बदला','“{t}” संग्रहित केले','मिटवा','विस्तृत करा','स्क्रीनवर','नवीन','पिन केलेली','गट नाही','शोधा…','फाइल्स संपादित करत आहे','कमांड चालवत आहे','कोड वाचत आहे','वेबवर शोधत आहे','सब-एजंटसोबत','ब्राउझर वापरत आहे','{t} वापरत आहे']],
-    te: ['తెలుగు', ['ఆఫీస్','{n} పనిలో','{n} విరామంలో','ఫ్లోట్','ఎల్లప్పుడూ పైన ఉండే ఫ్లోటింగ్ విండో','ఆ సెషన్‌కు వెళ్లడానికి కార్డ్‌పై క్లిక్ చేయండి.','కనెక్ట్ అవుతోంది…','మళ్లీ కనెక్ట్ అవుతోంది…','ఇంకా డేటా లేదు','Claude మీ సెషన్లను పంపే వరకు వేచి ఉంది…','ఆఫీస్ ఫ్లోటింగ్ విండోలో ఉంది.','పనిలో ఉంది','విరామంలో','ఆర్కైవ్','ఆపు','“{t}” ఆర్కైవ్ చేయాలా?','“{t}” చేస్తున్నది ఆపాలా?','పంపబడింది. యాప్ నిర్ధారణ అడగవచ్చు.','పూర్తయింది','చేయలేకపోయాం','అన్నీ','ఏదైనా పూర్తయినప్పుడు తెలియజేయి','“{t}” పూర్తయింది','ఈ సెషన్','భాష','అనుమతి లేదు. ~/.claude/settings.json లోని permissions.allow లో ఈ నియమాన్ని జోడించండి:','తొలగించు','“{t}” శాశ్వతంగా తొలగించాలా? దీన్ని రద్దు చేయలేరు.','అలంకరణ మార్చు','“{t}” ఆర్కైవ్ చేయబడింది','ముడుచు','విస్తరించు','తెరపై','కొత్తది','పిన్ చేసినవి','సమూహం లేదు','వెతకండి…','ఫైళ్లను సవరిస్తోంది','ఆదేశాలను నడుపుతోంది','కోడ్ చదువుతోంది','వెబ్‌లో వెతుకుతోంది','ఉప-ఏజెంట్‌తో','బ్రౌజర్ వాడుతోంది','{t} వాడుతోంది']],
-    tr: ['Türkçe', ['Ofis','{n} çalışıyor','{n} beklemede','Yüzdür','Her zaman üstte kalan yüzen pencere','O oturuma gitmek için bir karta tıklayın.','Bağlanıyor…','Yeniden bağlanıyor…','Henüz veri yok','Claude’un oturumlarınızı göndermesi bekleniyor…','Ofis yüzen pencerede.','Çalışıyor','Beklemede','Arşivle','Durdur','“{t}” arşivlensin mi?','“{t}” yaptığı işi durdursun mu?','Gönderildi. Uygulama onay isteyebilir.','Tamam','Yapılamadı','Tümü','Biri bitince haber ver','“{t}” bitti','Bu oturum','Dil','İzin eksik. Bu kuralı ~/.claude/settings.json içindeki permissions.allow listesine ekleyin:','Sil','“{t}” kalıcı olarak silinsin mi? Geri alınamaz.','Dekoru değiştir','“{t}” arşivlendi','Daralt','Genişlet','Ekranda','Yeni','Sabitlenenler','Grupsuz','Ara…','Dosyaları düzenliyor','Komut çalıştırıyor','Kod okuyor','Web’de arıyor','Bir alt ajanla','Tarayıcıyı kullanıyor','{t} kullanıyor']],
-    ta: ['தமிழ்', ['அலுவலகம்','{n} வேலையில்','{n} இடைநிறுத்தத்தில்','மிதக்கவை','எப்போதும் மேலே இருக்கும் மிதக்கும் சாளரம்','அந்த அமர்வுக்குச் செல்ல ஒரு அட்டையைக் கிளிக் செய்யவும்.','இணைக்கிறது…','மீண்டும் இணைக்கிறது…','இன்னும் தரவு இல்லை','Claude உங்கள் அமர்வுகளை அனுப்பக் காத்திருக்கிறது…','அலுவலகம் மிதக்கும் சாளரத்தில் உள்ளது.','வேலையில்','இடைநிறுத்தம்','காப்பகப்படுத்து','நிறுத்து','“{t}” காப்பகப்படுத்தவா?','“{t}” செய்வதை நிறுத்தவா?','அனுப்பப்பட்டது. செயலி உறுதிப்படுத்தக் கேட்கலாம்.','முடிந்தது','முடியவில்லை','அனைத்தும்','ஒன்று முடிந்ததும் தெரிவி','“{t}” முடிந்தது','இந்த அமர்வு','மொழி','அனுமதி இல்லை. ~/.claude/settings.json இல் உள்ள permissions.allow இல் இந்த விதியைச் சேர்க்கவும்:','நீக்கு','“{t}” நிரந்தரமாக நீக்கவா? இதைத் திரும்பப் பெற முடியாது.','அலங்காரத்தை மாற்று','“{t}” காப்பகப்படுத்தப்பட்டது','சுருக்கு','விரி','திரையில்','புதியது','பின் செய்தவை','குழு இல்லை','தேடு…','கோப்புகளைத் திருத்துகிறது','கட்டளைகளை இயக்குகிறது','குறியீட்டைப் படிக்கிறது','இணையத்தில் தேடுகிறது','துணை முகவருடன்','உலாவியைப் பயன்படுத்துகிறது','{t} பயன்படுத்துகிறது']],
-    vi: ['Tiếng Việt', ['Văn phòng','{n} đang làm','{n} tạm dừng','Nổi','Cửa sổ nổi luôn ở trên cùng','Nhấp vào thẻ để chuyển đến phiên đó.','Đang kết nối…','Đang kết nối lại…','Chưa có dữ liệu','Đang chờ Claude gửi các phiên của bạn…','Văn phòng đang ở cửa sổ nổi.','Đang làm','Tạm dừng','Lưu trữ','Dừng','Lưu trữ “{t}”?','Dừng việc “{t}” đang làm?','Đã gửi. Ứng dụng có thể yêu cầu bạn xác nhận.','Xong','Không thực hiện được','Tất cả','Báo khi có phiên xong','“{t}” đã xong','Phiên này','Ngôn ngữ','Thiếu quyền. Hãy thêm quy tắc này vào permissions.allow trong ~/.claude/settings.json:','Xóa','Xóa vĩnh viễn “{t}”? Không thể hoàn tác.','Đổi trang trí','Đã lưu trữ “{t}”','Thu gọn','Mở rộng','Đang hiển thị','Mới','Đã ghim','Không nhóm','Tìm kiếm…','Đang sửa tệp','Đang chạy lệnh','Đang đọc mã','Đang tìm trên web','Cùng một tác tử phụ','Đang dùng trình duyệt','Đang dùng {t}']],
-    ko: ['한국어', ['오피스','작업 중 {n}','대기 중 {n}','띄우기','항상 위에 떠 있는 창','카드를 클릭하면 해당 세션으로 이동합니다.','연결 중…','다시 연결 중…','아직 데이터가 없습니다','Claude가 세션을 보내기를 기다리는 중…','오피스가 떠 있는 창에 있습니다.','작업 중','대기 중','보관','중지','“{t}”을(를) 보관할까요?','“{t}”이(가) 하는 작업을 중지할까요?','보냈습니다. 앱에서 확인을 요청할 수 있습니다.','완료','실패했습니다','전체','끝나면 알림 받기','“{t}” 완료','이 세션','언어','권한이 없습니다. ~/.claude/settings.json의 permissions.allow에 이 규칙을 추가하세요:','삭제','“{t}”을(를) 영구 삭제할까요? 되돌릴 수 없습니다.','꾸미기 변경','“{t}” 보관됨','접기','펼치기','화면에 표시 중','새 소식','고정됨','그룹 없음','검색…','파일 편집 중','명령 실행 중','코드 읽는 중','웹 검색 중','하위 에이전트와 작업 중','브라우저 사용 중','{t} 사용 중']],
-    it: ['Italiano', ['Ufficio','{n} al lavoro','{n} in pausa','Fluttua','Finestra fluttuante sempre in primo piano','Fai clic su una scheda per aprire quella sessione.','Connessione…','Riconnessione…','Ancora nessun dato','In attesa che Claude invii le tue sessioni…','L’ufficio è nella finestra fluttuante.','Al lavoro','In pausa','Archivia','Ferma','Archiviare «{t}»?','Fermare ciò che sta facendo «{t}»?','Inviato. L’app potrebbe chiederti conferma.','Fatto','Non è stato possibile','Tutte','Avvisami quando una finisce','«{t}» ha finito','Questa sessione','Lingua','Manca il permesso. Aggiungi questa regola a permissions.allow in ~/.claude/settings.json:','Elimina','Eliminare «{t}» per sempre? Non si può annullare.','Cambia arredamento','«{t}» è stata archiviata','Comprimi','Espandi','Sullo schermo','Nuovo','Fissate','Senza gruppo','Cerca…','Modifica file','Esegue comandi','Legge il codice','Cerca sul web','Con un sottoagente','Usa il browser','Usa {t}']],
+    es: ['Español', ['Oficina','{n} trabajando','{n} en pausa','Flotar','Ventana flotante siempre encima','Pulsa una tarjeta para ir a esa sesión.','Conectando…','Reconectando…','Sin datos todavía','Esperando a que Claude envíe tus sesiones…','La oficina está en la ventana flotante.','Trabajando','En pausa','Archivar','Detener','¿Archivar «{t}»?','¿Detener lo que está haciendo «{t}»?','Enviado. Puede que la app te pida confirmarlo.','Hecho','No se pudo','Todos','Avisarme cuando una termine','«{t}» ha terminado','Esta sesión','Idioma','Falta permiso. Añade esta regla a permissions.allow en ~/.claude/settings.json:','Eliminar','¿Eliminar «{t}» para siempre? No se puede deshacer.','Cambiar decoración','Se ha archivado «{t}»','Plegar','Desplegar','En pantalla','Nuevo','Fijadas','Sin grupo','Buscar…','Editando archivos','Ejecutando comandos','Leyendo código','Buscando en la web','Con un subagente','Usando el navegador','Usando {t}','Nuevo chat','Abrir','Fijar','Desfijar','Renombrar…','Nuevo nombre para «{t}»','Mover a','Marcar como no leída','Más acciones']],
+    en: ['English', ['Office','{n} working','{n} idle','Float','Floating window that stays on top','Click a card to jump to that session.','Connecting…','Reconnecting…','No data yet','Waiting for Claude to send your sessions…','The office is in the floating window.','Working','Idle','Archive','Stop','Archive “{t}”?','Stop what “{t}” is doing?','Sent. The app may ask you to confirm.','Done','Couldn’t do it','All','Notify me when one finishes','“{t}” has finished','This session','Language','Missing permission. Add this rule to permissions.allow in ~/.claude/settings.json:','Delete','Delete “{t}” for good? This can’t be undone.','Change decor','“{t}” has been archived','Collapse','Expand','On screen','New','Pinned','No group','Search…','Editing files','Running commands','Reading code','Searching the web','With a subagent','Using the browser','Using {t}','New chat','Open','Pin','Unpin','Rename…','New name for “{t}”','Move to','Mark as unread','More actions']],
+    zh: ['中文', ['办公室','{n} 个工作中','{n} 个空闲','悬浮','始终置顶的悬浮窗口','点击卡片即可跳转到该会话。','正在连接…','正在重新连接…','暂无数据','正在等待 Claude 发送你的会话…','办公室已在悬浮窗口中。','工作中','空闲','归档','停止','归档“{t}”？','停止“{t}”正在做的事？','已发送，应用可能会请你确认。','完成','无法完成','全部','有会话完成时通知我','“{t}”已完成','当前会话','语言','缺少权限。请将此规则添加到 ~/.claude/settings.json 的 permissions.allow 中：','删除','永久删除“{t}”？此操作无法撤销。','更换装饰','已归档“{t}”','收起','展开','屏幕上','新','已置顶','未分组','搜索…','正在编辑文件','正在运行命令','正在阅读代码','正在网上搜索','子代理工作中','正在使用浏览器','正在使用 {t}','新对话','打开','置顶','取消置顶','重命名…','“{t}”的新名称','移动到','标为未读','更多操作']],
+    hi: ['हिन्दी', ['ऑफ़िस','{n} काम कर रहे','{n} खाली','फ़्लोट','हमेशा ऊपर रहने वाली फ़्लोटिंग विंडो','उस सत्र पर जाने के लिए कार्ड पर क्लिक करें।','कनेक्ट हो रहा है…','फिर से कनेक्ट हो रहा है…','अभी कोई डेटा नहीं','Claude के आपके सत्र भेजने की प्रतीक्षा…','ऑफ़िस फ़्लोटिंग विंडो में है।','काम कर रहा है','खाली','संग्रहित करें','रोकें','“{t}” को संग्रहित करें?','“{t}” जो कर रहा है उसे रोकें?','भेजा गया। ऐप पुष्टि माँग सकता है।','हो गया','नहीं हो सका','सभी','किसी के पूरा होने पर सूचित करें','“{t}” पूरा हो गया','यह सत्र','भाषा','अनुमति नहीं है। यह नियम ~/.claude/settings.json में permissions.allow में जोड़ें:','हटाएँ','“{t}” को हमेशा के लिए हटाएँ? इसे पूर्ववत नहीं किया जा सकता।','सजावट बदलें','“{t}” संग्रहित कर दिया गया','समेटें','फैलाएँ','स्क्रीन पर','नया','पिन किए गए','बिना समूह','खोजें…','फ़ाइलें संपादित कर रहा है','कमांड चला रहा है','कोड पढ़ रहा है','वेब पर खोज रहा है','सब-एजेंट के साथ','ब्राउज़र इस्तेमाल कर रहा है','{t} इस्तेमाल कर रहा है','नई चैट','खोलें','पिन करें','अनपिन करें','नाम बदलें…','“{t}” का नया नाम','यहाँ ले जाएँ','अपठित चिह्नित करें','और कार्रवाइयाँ']],
+    fr: ['Français', ['Bureau','{n} au travail','{n} en pause','Flotter','Fenêtre flottante toujours au premier plan','Cliquez sur une carte pour ouvrir cette session.','Connexion…','Reconnexion…','Pas encore de données','En attente des sessions envoyées par Claude…','Le bureau est dans la fenêtre flottante.','Au travail','En pause','Archiver','Arrêter','Archiver « {t} » ?','Arrêter ce que fait « {t} » ?','Envoyé. L’app peut vous demander de confirmer.','Fait','Impossible','Toutes','Me prévenir quand une session termine','« {t} » a terminé','Cette session','Langue','Autorisation manquante. Ajoutez cette règle à permissions.allow dans ~/.claude/settings.json :','Supprimer','Supprimer « {t} » définitivement ? Action irréversible.','Changer le décor','« {t} » a été archivée','Replier','Déplier','À l’écran','Nouveau','Épinglées','Sans groupe','Rechercher…','Modifie des fichiers','Exécute des commandes','Lit le code','Cherche sur le web','Avec un sous-agent','Utilise le navigateur','Utilise {t}','Nouvelle discussion','Ouvrir','Épingler','Désépingler','Renommer…','Nouveau nom pour « {t} »','Déplacer vers','Marquer comme non lue','Plus d’actions']],
+    ar: ['العربية', ['المكتب','{n} تعمل','{n} متوقفة','تعويم','نافذة عائمة تبقى في الأعلى دائمًا','انقر على بطاقة للانتقال إلى تلك الجلسة.','جارٍ الاتصال…','جارٍ إعادة الاتصال…','لا توجد بيانات بعد','في انتظار أن يرسل Claude جلساتك…','المكتب في النافذة العائمة.','تعمل','متوقفة','أرشفة','إيقاف','أرشفة «{t}»؟','إيقاف ما تفعله «{t}»؟','تم الإرسال. قد يطلب منك التطبيق التأكيد.','تم','تعذّر التنفيذ','الكل','نبّهني عند انتهاء جلسة','انتهت «{t}»','هذه الجلسة','اللغة','الإذن مفقود. أضف هذه القاعدة إلى permissions.allow في ~/.claude/settings.json:','حذف','حذف «{t}» نهائيًا؟ لا يمكن التراجع عن ذلك.','تغيير الديكور','تمت أرشفة «{t}»','طيّ','توسيع','على الشاشة','جديد','مثبّتة','بلا مجموعة','بحث…','يحرّر ملفات','ينفّذ أوامر','يقرأ الشيفرة','يبحث في الويب','مع وكيل فرعي','يستخدم المتصفح','يستخدم {t}','محادثة جديدة','فتح','تثبيت','إلغاء التثبيت','إعادة تسمية…','اسم جديد لـ «{t}»','نقل إلى','تعليم كغير مقروءة','إجراءات أخرى']],
+    bn: ['বাংলা', ['অফিস','{n}টি কাজ করছে','{n}টি বিরতিতে','ভাসমান','সবসময় উপরে থাকা ভাসমান উইন্ডো','সেই সেশনে যেতে একটি কার্ডে ক্লিক করুন।','সংযোগ হচ্ছে…','আবার সংযোগ হচ্ছে…','এখনও কোনো ডেটা নেই','Claude আপনার সেশন পাঠানোর অপেক্ষায়…','অফিসটি ভাসমান উইন্ডোতে আছে।','কাজ করছে','বিরতিতে','আর্কাইভ','থামান','“{t}” আর্কাইভ করবেন?','“{t}” যা করছে তা থামাবেন?','পাঠানো হয়েছে। অ্যাপ নিশ্চিত করতে বলতে পারে।','সম্পন্ন','করা যায়নি','সব','কোনোটি শেষ হলে জানান','“{t}” শেষ হয়েছে','এই সেশন','ভাষা','অনুমতি নেই। ~/.claude/settings.json-এর permissions.allow-এ এই নিয়মটি যোগ করুন:','মুছুন','“{t}” চিরতরে মুছবেন? এটি আর ফেরানো যাবে না।','সাজসজ্জা বদলান','“{t}” আর্কাইভ করা হয়েছে','গুটিয়ে নিন','প্রসারিত করুন','স্ক্রিনে','নতুন','পিন করা','গোষ্ঠী নেই','খুঁজুন…','ফাইল সম্পাদনা করছে','কমান্ড চালাচ্ছে','কোড পড়ছে','ওয়েবে খুঁজছে','সাব-এজেন্টের সাথে','ব্রাউজার ব্যবহার করছে','{t} ব্যবহার করছে','নতুন চ্যাট','খুলুন','পিন করুন','আনপিন করুন','নাম বদলান…','“{t}”-এর নতুন নাম','সরান','অপঠিত হিসেবে চিহ্নিত করুন','আরও কাজ']],
+    pt: ['Português', ['Escritório','{n} trabalhando','{n} em pausa','Flutuar','Janela flutuante sempre por cima','Clique num cartão para ir para essa sessão.','Conectando…','Reconectando…','Ainda sem dados','Aguardando o Claude enviar suas sessões…','O escritório está na janela flutuante.','Trabalhando','Em pausa','Arquivar','Parar','Arquivar “{t}”?','Parar o que “{t}” está fazendo?','Enviado. O app pode pedir confirmação.','Feito','Não foi possível','Todas','Avisar quando uma terminar','“{t}” terminou','Esta sessão','Idioma','Falta permissão. Adicione esta regra a permissions.allow em ~/.claude/settings.json:','Excluir','Excluir “{t}” para sempre? Não dá para desfazer.','Mudar decoração','“{t}” foi arquivada','Recolher','Expandir','Na tela','Novo','Fixadas','Sem grupo','Pesquisar…','Editando arquivos','Executando comandos','Lendo código','Pesquisando na web','Com um subagente','Usando o navegador','Usando {t}','Novo chat','Abrir','Fixar','Desafixar','Renomear…','Novo nome para “{t}”','Mover para','Marcar como não lida','Mais ações']],
+    ru: ['Русский', ['Офис','{n} работают','{n} на паузе','Поверх окон','Плавающее окно поверх всех окон','Нажмите на карточку, чтобы открыть сессию.','Подключение…','Переподключение…','Данных пока нет','Ждём, пока Claude пришлёт ваши сессии…','Офис открыт в плавающем окне.','Работает','На паузе','В архив','Остановить','Архивировать «{t}»?','Остановить то, что делает «{t}»?','Отправлено. Приложение может попросить подтверждение.','Готово','Не удалось','Все','Сообщать, когда сессия завершится','«{t}» завершена','Эта сессия','Язык','Нет разрешения. Добавьте это правило в permissions.allow в ~/.claude/settings.json:','Удалить','Удалить «{t}» навсегда? Это нельзя отменить.','Сменить оформление','«{t}» перемещена в архив','Свернуть','Развернуть','На экране','Новое','Закреплённые','Без группы','Поиск…','Редактирует файлы','Выполняет команды','Читает код','Ищет в интернете','С субагентом','Работает в браузере','Использует {t}','Новый чат','Открыть','Закрепить','Открепить','Переименовать…','Новое название для «{t}»','Переместить в','Отметить как непрочитанное','Другие действия']],
+    ur: ['اردو', ['دفتر','{n} کام میں','{n} رکے ہوئے','تیرتی ونڈو','ہمیشہ اوپر رہنے والی تیرتی ونڈو','اس سیشن پر جانے کے لیے کارڈ پر کلک کریں۔','جڑ رہا ہے…','دوبارہ جڑ رہا ہے…','ابھی کوئی ڈیٹا نہیں','Claude کے آپ کے سیشن بھیجنے کا انتظار…','دفتر تیرتی ونڈو میں ہے۔','کام میں','رکا ہوا','آرکائیو','روکیں','«{t}» آرکائیو کریں؟','«{t}» جو کر رہا ہے اسے روکیں؟','بھیج دیا۔ ایپ تصدیق مانگ سکتی ہے۔','ہو گیا','نہیں ہو سکا','سب','کسی کے ختم ہونے پر مطلع کریں','«{t}» ختم ہو گیا','یہ سیشن','زبان','اجازت نہیں ہے۔ یہ اصول ~/.claude/settings.json میں permissions.allow میں شامل کریں:','حذف کریں','«{t}» ہمیشہ کے لیے حذف کریں؟ یہ واپس نہیں ہو سکتا۔','سجاوٹ بدلیں','«{t}» آرکائیو کر دیا گیا','سمیٹیں','پھیلائیں','اسکرین پر','نیا','پن شدہ','بغیر گروپ','تلاش…','فائلیں ترمیم کر رہا ہے','کمانڈز چلا رہا ہے','کوڈ پڑھ رہا ہے','ویب پر تلاش کر رہا ہے','ذیلی ایجنٹ کے ساتھ','براؤزر استعمال کر رہا ہے','{t} استعمال کر رہا ہے','نئی چیٹ','کھولیں','پن کریں','ان پن کریں','نام بدلیں…','«{t}» کا نیا نام','منتقل کریں','غیر پڑھا نشان زد کریں','مزید اعمال']],
+    id: ['Bahasa Indonesia', ['Kantor','{n} bekerja','{n} jeda','Melayang','Jendela melayang yang selalu di atas','Klik kartu untuk membuka sesi itu.','Menghubungkan…','Menghubungkan ulang…','Belum ada data','Menunggu Claude mengirim sesi Anda…','Kantor ada di jendela melayang.','Bekerja','Jeda','Arsipkan','Hentikan','Arsipkan “{t}”?','Hentikan yang sedang dikerjakan “{t}”?','Terkirim. Aplikasi mungkin meminta konfirmasi.','Selesai','Gagal','Semua','Beri tahu saat ada yang selesai','“{t}” telah selesai','Sesi ini','Bahasa','Izin belum ada. Tambahkan aturan ini ke permissions.allow di ~/.claude/settings.json:','Hapus','Hapus “{t}” selamanya? Tidak bisa dibatalkan.','Ganti dekorasi','“{t}” telah diarsipkan','Ciutkan','Bentangkan','Di layar','Baru','Disematkan','Tanpa grup','Cari…','Mengedit berkas','Menjalankan perintah','Membaca kode','Mencari di web','Dengan subagen','Memakai peramban','Memakai {t}','Obrolan baru','Buka','Sematkan','Lepas sematan','Ganti nama…','Nama baru untuk “{t}”','Pindahkan ke','Tandai belum dibaca','Tindakan lain']],
+    de: ['Deutsch', ['Büro','{n} arbeiten','{n} pausiert','Schweben','Schwebendes Fenster, immer im Vordergrund','Klicke auf eine Karte, um die Sitzung zu öffnen.','Verbinde…','Verbinde erneut…','Noch keine Daten','Warte darauf, dass Claude deine Sitzungen sendet…','Das Büro ist im schwebenden Fenster.','Arbeitet','Pausiert','Archivieren','Stoppen','„{t}“ archivieren?','Stoppen, was „{t}“ gerade macht?','Gesendet. Die App fragt eventuell nach.','Erledigt','Hat nicht geklappt','Alle','Benachrichtigen, wenn eine fertig ist','„{t}“ ist fertig','Diese Sitzung','Sprache','Berechtigung fehlt. Füge diese Regel zu permissions.allow in ~/.claude/settings.json hinzu:','Löschen','„{t}“ endgültig löschen? Das lässt sich nicht rückgängig machen.','Deko ändern','„{t}“ wurde archiviert','Einklappen','Ausklappen','Auf dem Bildschirm','Neu','Angeheftet','Ohne Gruppe','Suchen…','Bearbeitet Dateien','Führt Befehle aus','Liest Code','Sucht im Web','Mit einem Subagenten','Nutzt den Browser','Nutzt {t}','Neuer Chat','Öffnen','Anheften','Lösen','Umbenennen…','Neuer Name für „{t}“','Verschieben nach','Als ungelesen markieren','Weitere Aktionen']],
+    ja: ['日本語', ['オフィス','作業中 {n}','待機中 {n}','フロート','常に最前面に表示されるフローティングウィンドウ','カードをクリックするとそのセッションに移動します。','接続中…','再接続中…','まだデータがありません','Claude がセッションを送るのを待っています…','オフィスはフローティングウィンドウにあります。','作業中','待機中','アーカイブ','停止','「{t}」をアーカイブしますか？','「{t}」の作業を停止しますか？','送信しました。アプリが確認を求めることがあります。','完了','できませんでした','すべて','終わったら通知する','「{t}」が完了しました','このセッション','言語','権限がありません。~/.claude/settings.json の permissions.allow にこのルールを追加してください:','削除','「{t}」を完全に削除しますか？元に戻せません。','内装を変更','「{t}」をアーカイブしました','折りたたむ','展開','表示中','新着','ピン留め','グループなし','検索…','ファイルを編集中','コマンドを実行中','コードを読んでいます','ウェブを検索中','サブエージェントと作業中','ブラウザを使用中','{t} を使用中','新しいチャット','開く','ピン留め','ピン留めを外す','名前を変更…','「{t}」の新しい名前','移動先','未読にする','その他の操作']],
+    mr: ['मराठी', ['ऑफिस','{n} काम करत आहेत','{n} थांबलेले','फ्लोट','नेहमी वर राहणारी फ्लोटिंग विंडो','त्या सत्रावर जाण्यासाठी कार्डवर क्लिक करा.','जोडत आहे…','पुन्हा जोडत आहे…','अजून डेटा नाही','Claude तुमची सत्रे पाठवण्याची वाट पाहत आहे…','ऑफिस फ्लोटिंग विंडोमध्ये आहे.','काम करत आहे','थांबलेले','संग्रहित करा','थांबवा','“{t}” संग्रहित करायचे?','“{t}” जे करत आहे ते थांबवायचे?','पाठवले. ॲप पुष्टी मागू शकते.','झाले','जमले नाही','सर्व','एखादे संपल्यावर कळवा','“{t}” पूर्ण झाले','हे सत्र','भाषा','परवानगी नाही. ~/.claude/settings.json मधील permissions.allow मध्ये हा नियम जोडा:','हटवा','“{t}” कायमचे हटवायचे? हे पूर्ववत करता येणार नाही.','सजावट बदला','“{t}” संग्रहित केले','मिटवा','विस्तृत करा','स्क्रीनवर','नवीन','पिन केलेली','गट नाही','शोधा…','फाइल्स संपादित करत आहे','कमांड चालवत आहे','कोड वाचत आहे','वेबवर शोधत आहे','सब-एजंटसोबत','ब्राउझर वापरत आहे','{t} वापरत आहे','नवीन चॅट','उघडा','पिन करा','अनपिन करा','नाव बदला…','“{t}” साठी नवीन नाव','येथे हलवा','न वाचलेले म्हणून चिन्हांकित करा','आणखी क्रिया']],
+    te: ['తెలుగు', ['ఆఫీస్','{n} పనిలో','{n} విరామంలో','ఫ్లోట్','ఎల్లప్పుడూ పైన ఉండే ఫ్లోటింగ్ విండో','ఆ సెషన్‌కు వెళ్లడానికి కార్డ్‌పై క్లిక్ చేయండి.','కనెక్ట్ అవుతోంది…','మళ్లీ కనెక్ట్ అవుతోంది…','ఇంకా డేటా లేదు','Claude మీ సెషన్లను పంపే వరకు వేచి ఉంది…','ఆఫీస్ ఫ్లోటింగ్ విండోలో ఉంది.','పనిలో ఉంది','విరామంలో','ఆర్కైవ్','ఆపు','“{t}” ఆర్కైవ్ చేయాలా?','“{t}” చేస్తున్నది ఆపాలా?','పంపబడింది. యాప్ నిర్ధారణ అడగవచ్చు.','పూర్తయింది','చేయలేకపోయాం','అన్నీ','ఏదైనా పూర్తయినప్పుడు తెలియజేయి','“{t}” పూర్తయింది','ఈ సెషన్','భాష','అనుమతి లేదు. ~/.claude/settings.json లోని permissions.allow లో ఈ నియమాన్ని జోడించండి:','తొలగించు','“{t}” శాశ్వతంగా తొలగించాలా? దీన్ని రద్దు చేయలేరు.','అలంకరణ మార్చు','“{t}” ఆర్కైవ్ చేయబడింది','ముడుచు','విస్తరించు','తెరపై','కొత్తది','పిన్ చేసినవి','సమూహం లేదు','వెతకండి…','ఫైళ్లను సవరిస్తోంది','ఆదేశాలను నడుపుతోంది','కోడ్ చదువుతోంది','వెబ్‌లో వెతుకుతోంది','ఉప-ఏజెంట్‌తో','బ్రౌజర్ వాడుతోంది','{t} వాడుతోంది','కొత్త చాట్','తెరువు','పిన్ చేయి','పిన్ తీసివేయి','పేరు మార్చు…','“{t}” కొత్త పేరు','ఇక్కడికి తరలించు','చదవనిదిగా గుర్తించు','మరిన్ని చర్యలు']],
+    tr: ['Türkçe', ['Ofis','{n} çalışıyor','{n} beklemede','Yüzdür','Her zaman üstte kalan yüzen pencere','O oturuma gitmek için bir karta tıklayın.','Bağlanıyor…','Yeniden bağlanıyor…','Henüz veri yok','Claude’un oturumlarınızı göndermesi bekleniyor…','Ofis yüzen pencerede.','Çalışıyor','Beklemede','Arşivle','Durdur','“{t}” arşivlensin mi?','“{t}” yaptığı işi durdursun mu?','Gönderildi. Uygulama onay isteyebilir.','Tamam','Yapılamadı','Tümü','Biri bitince haber ver','“{t}” bitti','Bu oturum','Dil','İzin eksik. Bu kuralı ~/.claude/settings.json içindeki permissions.allow listesine ekleyin:','Sil','“{t}” kalıcı olarak silinsin mi? Geri alınamaz.','Dekoru değiştir','“{t}” arşivlendi','Daralt','Genişlet','Ekranda','Yeni','Sabitlenenler','Grupsuz','Ara…','Dosyaları düzenliyor','Komut çalıştırıyor','Kod okuyor','Web’de arıyor','Bir alt ajanla','Tarayıcıyı kullanıyor','{t} kullanıyor','Yeni sohbet','Aç','Sabitle','Sabitlemeyi kaldır','Yeniden adlandır…','“{t}” için yeni ad','Şuraya taşı','Okunmadı olarak işaretle','Diğer işlemler']],
+    ta: ['தமிழ்', ['அலுவலகம்','{n} வேலையில்','{n} இடைநிறுத்தத்தில்','மிதக்கவை','எப்போதும் மேலே இருக்கும் மிதக்கும் சாளரம்','அந்த அமர்வுக்குச் செல்ல ஒரு அட்டையைக் கிளிக் செய்யவும்.','இணைக்கிறது…','மீண்டும் இணைக்கிறது…','இன்னும் தரவு இல்லை','Claude உங்கள் அமர்வுகளை அனுப்பக் காத்திருக்கிறது…','அலுவலகம் மிதக்கும் சாளரத்தில் உள்ளது.','வேலையில்','இடைநிறுத்தம்','காப்பகப்படுத்து','நிறுத்து','“{t}” காப்பகப்படுத்தவா?','“{t}” செய்வதை நிறுத்தவா?','அனுப்பப்பட்டது. செயலி உறுதிப்படுத்தக் கேட்கலாம்.','முடிந்தது','முடியவில்லை','அனைத்தும்','ஒன்று முடிந்ததும் தெரிவி','“{t}” முடிந்தது','இந்த அமர்வு','மொழி','அனுமதி இல்லை. ~/.claude/settings.json இல் உள்ள permissions.allow இல் இந்த விதியைச் சேர்க்கவும்:','நீக்கு','“{t}” நிரந்தரமாக நீக்கவா? இதைத் திரும்பப் பெற முடியாது.','அலங்காரத்தை மாற்று','“{t}” காப்பகப்படுத்தப்பட்டது','சுருக்கு','விரி','திரையில்','புதியது','பின் செய்தவை','குழு இல்லை','தேடு…','கோப்புகளைத் திருத்துகிறது','கட்டளைகளை இயக்குகிறது','குறியீட்டைப் படிக்கிறது','இணையத்தில் தேடுகிறது','துணை முகவருடன்','உலாவியைப் பயன்படுத்துகிறது','{t} பயன்படுத்துகிறது','புதிய அரட்டை','திற','பின் செய்','பின் நீக்கு','பெயர் மாற்று…','“{t}” க்கான புதிய பெயர்','இங்கு நகர்த்து','படிக்காதது எனக் குறி','மேலும் செயல்கள்']],
+    vi: ['Tiếng Việt', ['Văn phòng','{n} đang làm','{n} tạm dừng','Nổi','Cửa sổ nổi luôn ở trên cùng','Nhấp vào thẻ để chuyển đến phiên đó.','Đang kết nối…','Đang kết nối lại…','Chưa có dữ liệu','Đang chờ Claude gửi các phiên của bạn…','Văn phòng đang ở cửa sổ nổi.','Đang làm','Tạm dừng','Lưu trữ','Dừng','Lưu trữ “{t}”?','Dừng việc “{t}” đang làm?','Đã gửi. Ứng dụng có thể yêu cầu bạn xác nhận.','Xong','Không thực hiện được','Tất cả','Báo khi có phiên xong','“{t}” đã xong','Phiên này','Ngôn ngữ','Thiếu quyền. Hãy thêm quy tắc này vào permissions.allow trong ~/.claude/settings.json:','Xóa','Xóa vĩnh viễn “{t}”? Không thể hoàn tác.','Đổi trang trí','Đã lưu trữ “{t}”','Thu gọn','Mở rộng','Đang hiển thị','Mới','Đã ghim','Không nhóm','Tìm kiếm…','Đang sửa tệp','Đang chạy lệnh','Đang đọc mã','Đang tìm trên web','Cùng một tác tử phụ','Đang dùng trình duyệt','Đang dùng {t}','Trò chuyện mới','Mở','Ghim','Bỏ ghim','Đổi tên…','Tên mới cho “{t}”','Chuyển đến','Đánh dấu chưa đọc','Thao tác khác']],
+    ko: ['한국어', ['오피스','작업 중 {n}','대기 중 {n}','띄우기','항상 위에 떠 있는 창','카드를 클릭하면 해당 세션으로 이동합니다.','연결 중…','다시 연결 중…','아직 데이터가 없습니다','Claude가 세션을 보내기를 기다리는 중…','오피스가 떠 있는 창에 있습니다.','작업 중','대기 중','보관','중지','“{t}”을(를) 보관할까요?','“{t}”이(가) 하는 작업을 중지할까요?','보냈습니다. 앱에서 확인을 요청할 수 있습니다.','완료','실패했습니다','전체','끝나면 알림 받기','“{t}” 완료','이 세션','언어','권한이 없습니다. ~/.claude/settings.json의 permissions.allow에 이 규칙을 추가하세요:','삭제','“{t}”을(를) 영구 삭제할까요? 되돌릴 수 없습니다.','꾸미기 변경','“{t}” 보관됨','접기','펼치기','화면에 표시 중','새 소식','고정됨','그룹 없음','검색…','파일 편집 중','명령 실행 중','코드 읽는 중','웹 검색 중','하위 에이전트와 작업 중','브라우저 사용 중','{t} 사용 중','새 채팅','열기','고정','고정 해제','이름 바꾸기…','“{t}”의 새 이름','이동','읽지 않음으로 표시','더 보기']],
+    it: ['Italiano', ['Ufficio','{n} al lavoro','{n} in pausa','Fluttua','Finestra fluttuante sempre in primo piano','Fai clic su una scheda per aprire quella sessione.','Connessione…','Riconnessione…','Ancora nessun dato','In attesa che Claude invii le tue sessioni…','L’ufficio è nella finestra fluttuante.','Al lavoro','In pausa','Archivia','Ferma','Archiviare «{t}»?','Fermare ciò che sta facendo «{t}»?','Inviato. L’app potrebbe chiederti conferma.','Fatto','Non è stato possibile','Tutte','Avvisami quando una finisce','«{t}» ha finito','Questa sessione','Lingua','Manca il permesso. Aggiungi questa regola a permissions.allow in ~/.claude/settings.json:','Elimina','Eliminare «{t}» per sempre? Non si può annullare.','Cambia arredamento','«{t}» è stata archiviata','Comprimi','Espandi','Sullo schermo','Nuovo','Fissate','Senza gruppo','Cerca…','Modifica file','Esegue comandi','Legge il codice','Cerca sul web','Con un sottoagente','Usa il browser','Usa {t}','Nuova chat','Apri','Fissa','Rimuovi fissaggio','Rinomina…','Nuovo nome per «{t}»','Sposta in','Segna come non letta','Altre azioni']],
   }
   const RTL = new Set(['ar', 'ur'])
   const store = {
@@ -305,10 +344,10 @@
     return o.join('')
   }
 
-  function ago(iso) {
+  function ago(iso, short = false) {
     if (!iso) return ''
     const s = (Date.parse(iso) - Date.now()) / 1000
-    const rtf = new Intl.RelativeTimeFormat(lang, { numeric: 'auto' })
+    const rtf = new Intl.RelativeTimeFormat(lang, { numeric: 'auto', style: short ? 'short' : 'long' })
     const a = Math.abs(s)
     if (a < 60) return rtf.format(Math.round(s), 'second')
     if (a < 3600) return rtf.format(Math.round(s / 60), 'minute')
@@ -370,6 +409,65 @@
     where.body.appendChild(a)
     a.click()
     a.remove()
+  }
+
+  // ---------- menú ⋯ de cada tarjeta ----------
+  let menuFor = null
+  function menuHtml(d) {
+    const item = (mi, label, { enabled = true, danger = false, sub = false, extra = '' } = {}) =>
+      `<button class="mi${danger ? ' danger' : ''}${sub ? ' sub' : ''}" type="button" role="menuitem" data-mi="${mi}"${extra}${enabled ? '' : ' disabled'}>${esc(label)}</button>`
+    const groups = current.groups ?? []
+    const out = [`<div class="dropdown" role="menu" data-stop>`]
+    if (d.link) out.push(item('open', T('open')))
+    out.push(item(d.pinned ? 'unpin' : 'pin', T(d.pinned ? 'unpin' : 'pin')))
+    out.push(item('rename', T('rename')))
+    if (!d.isRunning) out.push(item('unread', T('markUnread')))
+    if (groups.length) {
+      out.push(`<div class="mlabel">${esc(T('moveTo'))}</div>`)
+      for (const g of groups) out.push(item('move', g.name, { sub: true, enabled: g.name !== d.group, extra: ` data-group="${esc(g.id)}"` }))
+      out.push(item('move', T('noGroup'), { sub: true, enabled: Boolean(d.group), extra: ' data-group=""' }))
+    }
+    out.push('<div class="msep"></div>')
+    out.push(item('stop', T('stop'), { enabled: d.isRunning }))
+    out.push(item('archive', T('archive'), { enabled: !d.isRunning }))
+    out.push(item('delete', T('delete'), { enabled: !d.isRunning, danger: true }))
+    out.push('</div>')
+    return out.join('')
+  }
+
+  async function queue(body) {
+    try {
+      if (!(await post('/api/action', body))) toast(T('failed'), true)
+    } catch {
+      toast(T('failed'), true)
+    }
+  }
+
+  async function menuAction(mi, d, target, card) {
+    if (mi === 'open') { if (d.link) { markRead(d); void openSession(d.link, card.ownerDocument) } return render() }
+    if (mi === 'stop' || mi === 'archive' || mi === 'delete') { confirming = { id: d.id, action: mi }; return render() }
+    if (mi === 'rename') {
+      render()
+      const win = card.ownerDocument.defaultView ?? window
+      const title = win.prompt(T('renamePrompt', { t: d.title }), d.title)
+      if (title && title.trim() && title.trim() !== d.title) await queue({ action: 'rename', sessionId: d.id, title: title.trim() })
+      return
+    }
+    if (mi === 'move') {
+      const groupId = target.dataset.group || null
+      await queue({ action: 'move', sessionId: d.id, groupId })
+      return render()
+    }
+    if (mi === 'unread') { delete seen[d.id]; seen[d.id] = ''; saveSeen() }
+    await queue({ action: mi, sessionId: d.id })
+    render()
+  }
+
+  // Un clic fuera o Escape cierra el menú (también en la ventana flotante).
+  {
+    const app = document.getElementById('app')
+    app.addEventListener('click', () => { if (menuFor) { menuFor = null; render() } })
+    app.addEventListener('keydown', ev => { if (ev.key === 'Escape' && menuFor) { menuFor = null; render() } })
   }
 
   async function runAction(action, d) {
@@ -497,25 +595,26 @@
     const cardHtml = d => {
       const title = d.title
       const conf = confirming && confirming.id === d.id ? confirming.action : null
-      const btn = (act, icon, enabled) =>
-        `<button class="act ${act}" type="button" data-act="${act}" title="${esc(T(act))}" aria-label="${esc(T(act))}"${enabled ? '' : ' disabled'}>${icon}<span>${esc(T(act))}</span></button>`
-      // Siempre los mismos botones: varias sesiones envían datos y cada una se marca a sí
-      // misma como «isSelf», así que depender de eso hacía aparecer y desaparecer botones.
-      const acts = `<div class="actions">${btn('stop', '■', d.isRunning)}${btn('archive', '⤓', !d.isRunning)}${btn('delete', '✕', !d.isRunning)}</div>`
+      // Estado encima de la foto: «Trabajando» o cuánto lleva en pausa.
+      const stateText = d.isRunning ? T('stWorking') : d.lastActivityAt ? ago(d.lastActivityAt, true) : T('stPaused')
+      const menuOpen = menuFor === d.id
       const confirmBox = conf ? `<div class="confirm" data-stop>
           <p>${esc(T({ stop: 'confirmStop', archive: 'confirmArchive', delete: 'confirmDelete' }[conf], { t: d.title }))}</p>
           <div class="row"><button class="tool yes" type="button" data-yes="${conf}">${esc(T(conf))}</button><button class="tool" type="button" data-no aria-label="✕">✕</button></div>
         </div>` : ''
       return `<div class="card ${d.isRunning ? 'working' : ''} ${d.link ? '' : 'nolink'} ${d.onScreen ? 'onscreen' : ''} ${d.focused ? 'focused' : ''}" data-id="${esc(d.id)}"
           ${d.link ? 'role="button" tabindex="0"' : ''} title="${esc(d.title)}">
-        ${desk(d)}
+        <div class="pic">
+          ${desk(d)}
+          <button class="more" type="button" data-menu aria-haspopup="true" aria-expanded="${menuOpen}" title="${esc(T('more'))}" aria-label="${esc(T('more'))}">⋯</button>
+          <span class="pill"><span class="dot"></span>${esc(stateText)}</span>
+        </div>
         <div class="info">
           <div class="title">${d.focused || d.onScreen ? `<span class="badge">${esc(T('onScreen'))}</span>` : ''}${isUnread(d) ? `<span class="badge new">${esc(T('unread'))}</span>` : ''}${esc(title)}</div>
           <div class="meta">${esc(d.project)}${d.pr ? ` · PR ${esc(d.pr)}` : ''}${d.group ? ` · ${esc(d.group)}` : ''}</div>
-          <div class="state"><span class="dot"></span>${esc(d.isRunning ? T('stWorking') : T('stPaused'))}${!d.isRunning && d.lastActivityAt ? ' · ' + esc(ago(d.lastActivityAt)) : ''}</div>
           ${doingHtml(d)}
-          ${acts}
         </div>
+        ${menuOpen ? menuHtml(d) : ''}
         ${confirmBox}
       </div>`
     }
@@ -532,6 +631,8 @@
         if (!t) return open()
         ev.stopPropagation()
         if (t.disabled) return
+        if ('menu' in t.dataset) { menuFor = menuFor === d.id ? null : d.id; confirming = null; render(); return }
+        if (t.dataset.mi) { menuFor = null; return void menuAction(t.dataset.mi, d, t, card) }
         if (t.dataset.act) { confirming = { id: d.id, action: t.dataset.act }; render() }
         else if (t.dataset.yes) void runAction(t.dataset.yes, d)
         else if ('no' in t.dataset) { confirming = null; render() }
@@ -663,6 +764,10 @@
   }
 
   document.getElementById('pip').addEventListener('click', () => void float())
+  document.getElementById('newchat').addEventListener('click', async () => {
+    try { if (await post('/api/open', { link: 'claude://claude.ai/epitaxy/new' })) return } catch {}
+    toast(T('failed'), true)
+  })
 
   // Plegar / desplegar la ventana compacta (se recuerda; por defecto desplegada).
   function applyFold() {
@@ -739,7 +844,7 @@
     const r = JSON.parse(ev.data)
     const d = current.desks.find(x => x.id === r.sessionId)
     const name = d ? d.title : r.sessionId
-    if (r.ok) return toast(r.action === 'archive' ? T('archived', { t: name }) : `${T('done')}: ${T(r.action)} · ${name}`)
+    if (r.ok) return toast(r.action === 'archive' ? T('archived', { t: name }) : `${T('done')}: ${T(RESULT_KEY[r.action] ?? r.action)} · ${name}`)
     if (r.pending) return toast(`${name} · ${r.message}`)
     if (NEEDS_PERMISSION.test(r.message ?? '')) return permissionHint(r.action)
     toast(`${T('failed')}: ${name}${r.message ? ' · ' + r.message : ''}`, true)
@@ -750,7 +855,13 @@
   const ACTION_TOOL = {
     stop: 'mcp__ccd_session_mgmt__stop_session',
     archive: 'mcp__ccd_session_mgmt__archive_session',
+    pin: 'mcp__ccd_sidebar__set_pinned',
+    unpin: 'mcp__ccd_sidebar__set_pinned',
+    rename: 'mcp__ccd_session_mgmt__set_session_title',
+    move: 'mcp__ccd_sidebar__move_sessions',
+    unread: 'mcp__ccd_sidebar__set_unread',
   }
+  const RESULT_KEY = { move: 'moveTo', unread: 'markUnread', rename: 'rename' }
   function permissionHint(action) {
     const box = el('toasts')
     if (!box) return

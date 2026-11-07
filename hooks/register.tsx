@@ -258,7 +258,7 @@ async function refresh($: Engine) {
     await addActivity($, desks)
     await update($, office, () => ({ desks, updatedAt: Date.now() }))
     await announceFinished($, desks)
-    await pushToServer($, desks)
+    await pushToServer($, desks, await listGroups($))
     await retryPendingArchives($)
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
@@ -310,12 +310,12 @@ async function startServer($: Engine) {
   }
 }
 
-async function pushToServer($: Engine, desks: Desk[]) {
+async function pushToServer($: Engine, desks: Desk[], groups?: Group[]) {
   try {
     const res = await $.http.fetch(`${SERVER}/api/sessions`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-oficina': '1' },
-      body: JSON.stringify({ desks }),
+      body: JSON.stringify(groups ? { desks, groups } : { desks }),
     })
     if (res.ok) return
   } catch {
@@ -325,7 +325,63 @@ async function pushToServer($: Engine, desks: Desk[]) {
 }
 
 type Action = 'archive' | 'stop' | 'delete'
-type QueuedAction = { id: string; action: Action; sessionId: string }
+type SidebarAction = 'pin' | 'unpin' | 'rename' | 'move' | 'unread'
+type QueuedAction = {
+  id: string
+  action: Action | SidebarAction
+  sessionId: string
+  title?: string
+  groupId?: string | null
+}
+
+// Lo mismo que la barra lateral de la app: fijar, renombrar, mover de grupo, marcar no leída.
+const SIDEBAR_TOOLS: Record<SidebarAction, string> = {
+  pin: 'mcp__ccd_sidebar__set_pinned',
+  unpin: 'mcp__ccd_sidebar__set_pinned',
+  rename: 'mcp__ccd_session_mgmt__set_session_title',
+  move: 'mcp__ccd_sidebar__move_sessions',
+  unread: 'mcp__ccd_sidebar__set_unread',
+}
+
+async function runSidebarAction($: Engine, item: QueuedAction): Promise<ActionResult> {
+  const action = item.action as SidebarAction
+  const tool = SIDEBAR_TOOLS[action]
+  const id = item.sessionId
+  const input =
+    action === 'pin' || action === 'unpin'
+      ? { tool, session_id: id, pinned: action === 'pin' }
+      : action === 'rename'
+        ? { tool, session_id: id, title: String(item.title ?? '').slice(0, 120) }
+        : action === 'move'
+          ? { tool, session_ids: [id], group_id: item.groupId ?? null }
+          : { tool, session_id: id, unread: true }
+  try {
+    const ran = await $.tool.call(input as never)
+    if ('deny' in ran && ran.deny) return { ok: false, message: ran.deny }
+    return { ok: !(ran as { isError?: boolean }).isError, message: toText((ran as { result?: unknown }).result).slice(0, 400) }
+  } catch (err) {
+    return { ok: false, message: err instanceof Error ? err.message : String(err) }
+  }
+}
+
+type Group = { id: string; name: string }
+
+// Grupos de la barra lateral, para «Mover a» en la página.
+async function listGroups($: Engine): Promise<Group[] | undefined> {
+  try {
+    const ran = await $.tool.call({ tool: 'mcp__ccd_sidebar__list_groups' } as never)
+    if ('deny' in ran && ran.deny) return undefined
+    const text = toText((ran as { result?: unknown }).result)
+    const parsed: unknown = JSON.parse(text.slice(text.indexOf('['), text.lastIndexOf(']') + 1))
+    return Array.isArray(parsed)
+      ? (parsed as { id?: unknown; name?: unknown }[])
+          .filter(g => typeof g.id === 'string' && typeof g.name === 'string')
+          .map(g => ({ id: g.id as string, name: g.name as string }))
+      : undefined
+  } catch {
+    return undefined
+  }
+}
 
 const ACTION_TOOLS = {
   archive: 'mcp__ccd_session_mgmt__archive_session',
@@ -403,7 +459,7 @@ async function archiveOrWait($: Engine, sessionId: string): Promise<ActionResult
   return { ok: false, pending: true, message: 'Está abierta: se archivará en cuanto cambies a otra sesión.' }
 }
 
-async function reportResult($: Engine, action: Action, sessionId: string, r: ActionResult) {
+async function reportResult($: Engine, action: Action | SidebarAction, sessionId: string, r: ActionResult) {
   try {
     await $.http.fetch(`${SERVER}/api/action-result`, {
       method: 'POST',
@@ -458,12 +514,14 @@ async function pollActions($: Engine) {
     if (!res.ok) return
     const queued = JSON.parse(res.text) as QueuedAction[]
     for (const item of queued) {
-      if (!ACTION_TOOLS[item.action]) continue
-      const r =
-        item.action === 'archive'
-          ? await archiveOrWait($, item.sessionId)
-          : await runAction($, item.action, item.sessionId)
-      await reportResult($, item.action, item.sessionId, r)
+      if (item.action in SIDEBAR_TOOLS) {
+        await reportResult($, item.action, item.sessionId, await runSidebarAction($, item))
+        continue
+      }
+      const action = item.action as Action
+      if (!ACTION_TOOLS[action]) continue
+      const r = action === 'archive' ? await archiveOrWait($, item.sessionId) : await runAction($, action, item.sessionId)
+      await reportResult($, action, item.sessionId, r)
     }
     if (queued.length > 0) await refresh($)
   } catch {
@@ -650,12 +708,16 @@ async function addActivity($: Engine, desks: Desk[]) {
 const PERMISSION_TOOLS = [
   'mcp__ccd_session_mgmt__stop_session',
   'mcp__ccd_session_mgmt__archive_session',
+  'mcp__ccd_sidebar__set_pinned',
+  'mcp__ccd_session_mgmt__set_session_title',
+  'mcp__ccd_sidebar__move_sessions',
+  'mcp__ccd_sidebar__set_unread',
 ] as const
-const SETUP_KEY = 'setup-notice-v1'
+const SETUP_KEY = 'setup-notice-v2'
 
 const SETUP_TEXT = [
-  'Oficina: para detener y archivar sesiones desde la oficina sin que te pregunte cada vez',
-  '(y para que funcione en modo automático), añade estas dos reglas a "permissions.allow"',
+  'Oficina: para detener, archivar, fijar, renombrar y mover sesiones desde la oficina sin que te pregunte cada vez',
+  '(y para que funcione en modo automático), añade estas reglas a "permissions.allow"',
   'en ~/.claude/settings.json:',
   '',
   ...PERMISSION_TOOLS.map(t => `  ${t}`),
