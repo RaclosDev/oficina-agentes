@@ -2,7 +2,8 @@
 // Recibe las sesiones que envía el mod "oficina-agentes" y las sirve a la página.
 import { createServer } from 'node:http'
 import { spawn } from 'node:child_process'
-import { readFile } from 'node:fs/promises'
+import { readFile, stat } from 'node:fs/promises'
+import { watch } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
@@ -23,6 +24,28 @@ function send(res, status, body, type = 'application/json; charset=utf-8') {
   res.end(body)
 }
 
+// Versión de la página (fecha del index.html): una ventana abierta con una versión
+// antigua se recarga sola al recibir otra distinta.
+async function pageVersion() {
+  try {
+    return String(Math.round((await stat(join(here, 'index.html'))).mtimeMs))
+  } catch {
+    return '0'
+  }
+}
+let watchTimer
+try {
+  watch(join(here, 'index.html'), () => {
+    clearTimeout(watchTimer)
+    watchTimer = setTimeout(async () => {
+      const v = await pageVersion()
+      for (const c of clients) c.write(`event: version\ndata: ${v}\n\n`)
+    }, 500)
+  })
+} catch {
+  // sin vigilancia de archivos: la versión se comprueba al reconectar
+}
+
 function broadcast() {
   const data = `data: ${JSON.stringify(snapshot)}\n\n`
   for (const res of clients) res.write(data)
@@ -32,7 +55,8 @@ const server = createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', `http://${HOST}`)
 
   if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/index.html')) {
-    return send(res, 200, await readFile(join(here, 'index.html')), 'text/html; charset=utf-8')
+    const html = (await readFile(join(here, 'index.html'), 'utf8')).replaceAll('__OFICINA_VERSION__', await pageVersion())
+    return send(res, 200, html, 'text/html; charset=utf-8')
   }
 
   if (req.method === 'GET' && url.pathname === '/api/health') {
@@ -49,6 +73,7 @@ const server = createServer(async (req, res) => {
       'cache-control': 'no-store',
       connection: 'keep-alive',
     })
+    res.write(`event: version\ndata: ${await pageVersion()}\n\n`)
     res.write(`data: ${JSON.stringify(snapshot)}\n\n`)
     clients.add(res)
     const ping = setInterval(() => res.write(': ping\n\n'), 25_000)
@@ -71,7 +96,19 @@ const server = createServer(async (req, res) => {
     try {
       const parsed = JSON.parse(body)
       if (!Array.isArray(parsed.desks)) throw new Error('desks')
-      snapshot = { desks: parsed.desks, updatedAt: Date.now() }
+      // Varias sesiones envían por turnos y ninguna sabe su propia actividad: se conserva
+      // la última conocida de cada sesión para que no aparezca y desaparezca.
+      const before = new Map(snapshot.desks.map(d => [d.id, d]))
+      // Lo mismo con lo que las sesiones con una versión antigua del mod aún no envían.
+      const desks = parsed.desks.map(d => {
+        const prev = before.get(d.id)
+        if (!prev) return d
+        const out = { ...d }
+        if (!out.activity && prev.activity && prev.lastActivityAt === d.lastActivityAt) out.activity = prev.activity
+        for (const k of ['onScreen', 'focused', 'pinned']) if (out[k] === undefined && prev[k] !== undefined) out[k] = prev[k]
+        return out
+      })
+      snapshot = { desks, updatedAt: Date.now() }
       broadcast()
       return send(res, 204, '')
     } catch {

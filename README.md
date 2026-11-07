@@ -7,6 +7,8 @@ Una oficina pixel con todas tus sesiones de Claude Code. Cada sesión es un pers
 - **Todas tus sesiones de un vistazo**: título, proyecto (carpeta), grupo de la barra lateral, PR y cuánto lleva en pausa.
 - **Ventana flotante siempre encima** (Windows): una ventana compacta que se ajusta al número de sesiones, se pliega con ▾ y crece al ensancharla. En otros sistemas usa el Picture-in-Picture del navegador.
 - **Un clic para ir a la sesión** en la app de Claude.
+- **Como una barra lateral**: marca la sesión que tienes abierta, pone «Nuevo» en las que han terminado desde la última vez que las viste, y agrupa por tus grupos de la barra lateral con las fijadas arriba. Con muchas sesiones aparece un buscador.
+- **Qué está haciendo cada una**: «Editando archivos…», «Ejecutando comandos…» mientras trabaja, o la primera frase de su último mensaje cuando para.
 - **Detener, archivar o eliminar** una sesión desde su tarjeta, con confirmación. Eliminar siempre pide además tu aprobación en la app.
 - **Departamentos**: filtra por proyecto; cada uno tiene su propia decoración (suelo y alfombra), que puedes cambiar con 🎨.
 - **Aviso cuando una sesión termina** (sonido y notificación del sistema), opcional.

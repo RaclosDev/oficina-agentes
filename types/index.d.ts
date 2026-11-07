@@ -8,7 +8,15 @@ export type Desk = {
   pr?: string
   lastActivityAt?: string
   group?: string
+  pinned?: boolean
+  /** Abierta en la ventana de la app (en algún panel) y si es la que tiene el foco. */
+  onScreen?: boolean
+  focused?: boolean
+  /** Lo último que hizo: una herramienta (la página la traduce) o su último texto. */
+  activity?: Activity
 }
+
+export type Activity = { kind: 'tool'; tool: string } | { kind: 'text'; text: string }
 
 export type Office = {
   desks: Desk[]

@@ -251,8 +251,11 @@ async function refresh($: Engine) {
           pr: s.prNumber ? `#${s.prNumber}` : undefined,
           lastActivityAt: s.lastActivityAt,
           group: s.group?.name,
+          pinned: Boolean(s.pinned),
         })),
     ]
+    await markOnScreen($, desks)
+    await addActivity($, desks)
     await update($, office, () => ({ desks, updatedAt: Date.now() }))
     await announceFinished($, desks)
     await pushToServer($, desks)
@@ -545,6 +548,100 @@ async function selfDesk($: Engine): Promise<Desk> {
     pr: raw?.prNumber ? `#${raw.prNumber}` : undefined,
     lastActivityAt: raw?.lastActivityAt,
     group: raw?.group?.name ?? undefined,
+    pinned: Boolean(raw?.pinned),
+  }
+}
+
+// ---------- en pantalla y última actividad ----------
+
+const LAYOUT_TOOL = 'mcp__ccd_window__get_window_layout'
+const EVENTS_TOOL = 'mcp__ccd_session_mgmt__list_events'
+
+type Layout = {
+  main_window?: { panes?: { session_id?: string; focused?: boolean }[] }
+  popout_windows?: { sessions?: (string | { session_id?: string })[] }
+}
+
+// Qué sesiones tiene abiertas la ventana de la app, y cuál con el foco.
+async function markOnScreen($: Engine, desks: Desk[]) {
+  try {
+    const ran = await $.tool.call({ tool: LAYOUT_TOOL } as never)
+    if ('deny' in ran && ran.deny) return
+    const text = toText((ran as { result?: unknown }).result)
+    const start = text.indexOf('{')
+    const layout = JSON.parse(text.slice(start, text.lastIndexOf('}') + 1)) as Layout
+    const open = new Set<string>()
+    let focused = ''
+    for (const pane of layout.main_window?.panes ?? []) {
+      if (!pane.session_id) continue
+      open.add(pane.session_id)
+      if (pane.focused) focused = pane.session_id
+    }
+    for (const s of layout.popout_windows?.sessions ?? []) {
+      const id = typeof s === 'string' ? s : s.session_id
+      if (id) open.add(id)
+    }
+    for (const d of desks) {
+      d.onScreen = open.has(d.id)
+      d.focused = d.id === focused
+    }
+  } catch {
+    // sin datos de ventana: sin resaltado
+  }
+}
+
+// Herramientas internas de la app que no dicen nada de lo que hace la sesión.
+const QUIET_TOOL = /^mcp__ccd_(turn|view|window|sidebar)__|^(ToolSearch|TodoWrite|TaskCreate|TaskUpdate)$/
+
+// Del texto de list_events: la última herramienta o el último texto, lo más reciente.
+function parseActivity(text: string, isRunning: boolean): Desk['activity'] {
+  const lines = text.split('\n')
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const line = (lines[i] ?? '').trim()
+    const called = /^\[assistant\] \(called ([^\s)]+)/.exec(line)
+    if (called?.[1]) {
+      if (QUIET_TOOL.test(called[1])) continue
+      if (isRunning) return { kind: 'tool', tool: called[1] }
+      continue
+    }
+    if (line.startsWith('[assistant] ')) {
+      const clean = line
+        .slice(12)
+        .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+        .replace(/[*_`#>]/g, '')
+        .trim()
+      if (!clean) continue
+      const sentence = clean.split(/(?<=[.!?])\s/)[0] ?? clean
+      return { kind: 'text', text: sentence.length > 140 ? `${sentence.slice(0, 139)}…` : sentence }
+    }
+  }
+  return undefined
+}
+
+const activityCache = new Map<string, { key: string; activity: Desk['activity'] }>()
+
+// Pide la conversación reciente solo de las sesiones con actividad nueva.
+async function addActivity($: Engine, desks: Desk[]) {
+  let calls = 0
+  for (const d of desks) {
+    if (d.isSelf) continue
+    const key = `${d.lastActivityAt ?? ''}|${d.isRunning}`
+    const cached = activityCache.get(d.id)
+    if (cached && (cached.key === key || calls >= 8)) {
+      d.activity = cached.activity
+      continue
+    }
+    if (calls >= 8) continue
+    calls++
+    try {
+      const ran = await $.tool.call({ tool: EVENTS_TOOL, session_id: d.id, limit: 8 } as never)
+      if ('deny' in ran && ran.deny) continue
+      const activity = parseActivity(toText((ran as { result?: unknown }).result), d.isRunning)
+      activityCache.set(d.id, { key, activity })
+      d.activity = activity
+    } catch {
+      // sin actividad para esta sesión
+    }
   }
 }
 
