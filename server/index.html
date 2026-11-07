@@ -86,7 +86,7 @@
   /* Foto del agente con el menú ⋯ arriba a la izquierda y el estado encima, abajo. */
   .pic { position: relative; overflow: hidden; border-radius: 9px 9px 0 0; }
   .more {
-    position: absolute; top: 4px; inset-inline-start: 4px; z-index: 2;
+    position: absolute; top: 4px; inset-inline-end: 4px; z-index: 2;
     font: inherit; font-size: 13px; line-height: 1; padding: 3px 7px; cursor: pointer;
     color: var(--ink); background: rgba(28, 29, 38, 0.78); border: 1px solid var(--line); border-radius: 6px;
   }
@@ -99,11 +99,17 @@
   }
   .working .pill { color: var(--work); }
   .dropdown {
-    position: absolute; top: 30px; inset-inline-start: 4px; z-index: 30; min-width: 200px;
+    position: absolute; top: 30px; inset-inline-end: 4px; z-index: 30; min-width: 200px;
+    max-height: 70vh; overflow-y: auto;
     display: grid; padding: 4px; gap: 1px;
     background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
     box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
   }
+  /* La tarjeta con el menú abierto va por delante de las demás (al pasar el ratón, otra
+     tarjeta crea su propia capa y lo tapaba). */
+  .card.menu-open { z-index: 40; transform: none; }
+  .dropdown.up { top: auto; bottom: 30px; }
+  .compact .info { padding-inline-end: 30px; }
   .mi {
     font: inherit; font-size: 12px; text-align: start; padding: 6px 8px; cursor: pointer;
     color: var(--ink); background: transparent; border: 0; border-radius: 5px;
@@ -178,7 +184,7 @@
   .compact .pic { width: 84px; flex: none; border-radius: 9px 0 0 9px; align-self: stretch; display: flex; align-items: center; background: #d8c3a5; }
   .compact .pill { font-size: 9px; padding: 1px 5px; gap: 3px; bottom: 3px; inset-inline-start: 3px; }
   .compact .pill .dot { width: 6px; height: 6px; }
-  .compact .more { top: 3px; inset-inline-start: 3px; font-size: 11px; padding: 2px 5px; }
+  .compact .more { top: 4px; inset-inline-end: 4px; font-size: 11px; padding: 2px 6px; }
   .compact .info { padding: 4px 8px; }
   .compact .actions { margin-top: 3px; }
   .compact .act span { display: none; }
@@ -602,11 +608,10 @@
           <p>${esc(T({ stop: 'confirmStop', archive: 'confirmArchive', delete: 'confirmDelete' }[conf], { t: d.title }))}</p>
           <div class="row"><button class="tool yes" type="button" data-yes="${conf}">${esc(T(conf))}</button><button class="tool" type="button" data-no aria-label="✕">✕</button></div>
         </div>` : ''
-      return `<div class="card ${d.isRunning ? 'working' : ''} ${d.link ? '' : 'nolink'} ${d.onScreen ? 'onscreen' : ''} ${d.focused ? 'focused' : ''}" data-id="${esc(d.id)}"
+      return `<div class="card ${menuOpen ? 'menu-open' : ''} ${d.isRunning ? 'working' : ''} ${d.link ? '' : 'nolink'} ${d.onScreen ? 'onscreen' : ''} ${d.focused ? 'focused' : ''}" data-id="${esc(d.id)}"
           ${d.link ? 'role="button" tabindex="0"' : ''} title="${esc(d.title)}">
         <div class="pic">
           ${desk(d)}
-          <button class="more" type="button" data-menu aria-haspopup="true" aria-expanded="${menuOpen}" title="${esc(T('more'))}" aria-label="${esc(T('more'))}">⋯</button>
           <span class="pill"><span class="dot"></span>${esc(stateText)}</span>
         </div>
         <div class="info">
@@ -614,6 +619,7 @@
           <div class="meta">${esc(d.project)}${d.pr ? ` · PR ${esc(d.pr)}` : ''}${d.group ? ` · ${esc(d.group)}` : ''}</div>
           ${doingHtml(d)}
         </div>
+        <button class="more" type="button" data-menu aria-haspopup="true" aria-expanded="${menuOpen}" title="${esc(T('more'))}" aria-label="${esc(T('more'))}">⋯</button>
         ${menuOpen ? menuHtml(d) : ''}
         ${confirmBox}
       </div>`
@@ -621,6 +627,15 @@
     grid.innerHTML = sections
       .map(([name, list]) => (showHeaders ? `<div class="section">${esc(name)}</div>` : '') + list.map(cardHtml).join(''))
       .join('')
+
+    // El menú abierto se abre hacia arriba si no cabe debajo (en la ventana flotante, que
+    // mide justo lo que ocupan las tarjetas).
+    const dd = grid.querySelector('.dropdown')
+    if (dd) {
+      const view = dd.ownerDocument.defaultView ?? window
+      const r = dd.getBoundingClientRect()
+      if (r.bottom > view.innerHeight - 4 && r.height < r.top - 34) dd.classList.add('up')
+    }
 
     grid.querySelectorAll('.card').forEach(card => {
       const d = desks.find(x => x.id === card.dataset.id)
