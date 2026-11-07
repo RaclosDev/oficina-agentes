@@ -1,0 +1,683 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Oficina</title>
+<style id="oficina-style">
+  :root {
+    --bg: #1c1d26;
+    --panel: #262836;
+    --line: #3a3d50;
+    --ink: #f2efe9;
+    --dim: #a3a7b8;
+    --work: #5fd38d;
+    --rest: #8d93a8;
+    --accent: #f3a712;
+    --danger: #ff7a6b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 14px/1.35 ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  }
+  #app { padding: 14px; }
+  header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+  header h1 { font-size: 16px; margin: 0 auto 0 0; }
+  .count { color: var(--dim); }
+  .count b { color: var(--work); }
+  .tool, select.tool {
+    font: inherit;
+    color: var(--ink);
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 5px 10px;
+    cursor: pointer;
+  }
+  .tool:hover { border-color: var(--accent); }
+  .toggle { display: inline-flex; align-items: center; gap: 6px; color: var(--dim); cursor: pointer; font-size: 12px; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+  .chip {
+    font: inherit; font-size: 12px; color: var(--dim);
+    background: transparent; border: 1px solid var(--line); border-radius: 999px;
+    padding: 3px 10px; cursor: pointer;
+  }
+  .chip[aria-pressed='true'] { color: var(--bg); background: var(--accent); border-color: var(--accent); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
+  .card {
+    position: relative;
+    display: flex; flex-direction: column;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: transform 0.12s ease, border-color 0.12s ease;
+  }
+  .card:hover { transform: translateY(-2px); border-color: var(--accent); }
+  .card.nolink { cursor: default; }
+  .card.nolink:hover { transform: none; }
+  .card svg { display: block; width: 100%; height: auto; }
+  .info { padding: 8px 10px 10px; display: grid; gap: 2px; min-width: 0; }
+  .title { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .meta { color: var(--dim); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .state { font-size: 12px; display: flex; align-items: center; gap: 6px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--rest); flex: none; }
+  .working .dot { background: var(--work); animation: pulse 1.4s infinite; }
+  .working .state { color: var(--work); }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(95, 211, 141, 0.6); } 100% { box-shadow: 0 0 0 7px rgba(95, 211, 141, 0); } }
+  .actions { display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap; }
+  .act {
+    font: inherit; font-size: 11px; line-height: 1;
+    display: inline-flex; align-items: center; gap: 4px;
+    color: var(--dim); background: transparent;
+    border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; cursor: pointer;
+  }
+  .act:not(:disabled):hover { border-color: var(--accent); color: var(--ink); }
+  .act.delete:not(:disabled):hover { border-color: var(--danger); color: var(--danger); }
+  .act:disabled { opacity: 0.35; cursor: not-allowed; }
+  .chip.deco { border-style: dashed; }
+  body { transition: background 0.3s ease; }
+  .confirm {
+    position: absolute; inset: 0;
+    background: rgba(28, 29, 38, 0.94);
+    display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 10px;
+    padding: 12px; text-align: center;
+  }
+  .confirm p { margin: 0; overflow-wrap: anywhere; }
+  .confirm .row { display: flex; gap: 8px; }
+  .confirm .yes { border-color: var(--danger); color: var(--danger); }
+  .empty { color: var(--dim); padding: 30px 0; text-align: center; grid-column: 1 / -1; }
+  .hint { color: var(--dim); font-size: 12px; margin-top: 12px; }
+  #toasts { position: fixed; bottom: 12px; inset-inline-start: 50%; transform: translateX(-50%); display: grid; gap: 6px; z-index: 5; width: min(90vw, 420px); }
+  [dir='rtl'] #toasts { transform: translateX(50%); }
+  .toast { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; font-size: 12px; }
+  .toast.bad { border-color: var(--danger); }
+  .toast { position: relative; }
+  .toast .close { position: absolute; top: 6px; inset-inline-end: 6px; padding: 3px 6px; }
+  .toast > div { padding-inline-end: 28px; }
+  .toast .rule {
+    display: block; margin-top: 6px; padding: 6px 8px;
+    background: var(--bg); border: 1px dashed var(--line); border-radius: 6px;
+    overflow-wrap: anywhere; cursor: copy; user-select: all;
+  }
+  .toast .rule.copied { border-color: var(--work); color: var(--work); }
+
+  /* Ventana flotante */
+  .compact #app { padding: 8px; }
+  .compact header { margin-bottom: 6px; }
+  .compact header h1 { font-size: 14px; }
+  .compact .hint, .compact #pip { display: none; }
+  .fold { display: none; padding: 5px 8px; line-height: 1; }
+  .compact .fold { display: inline-block; }
+  .settings { display: flex; gap: 6px; }
+  .folded .chips, .folded .grid, .folded .hint { display: none; }
+  .folded header { margin-bottom: 0; }
+  .compact .chips { margin-bottom: 6px; }
+  .compact .grid { grid-template-columns: 1fr; gap: 6px; }
+  .compact .card { flex-direction: row; align-items: center; }
+  .compact .card svg { width: 64px; flex: none; }
+  .compact .info { padding: 4px 8px; }
+  .compact .actions { margin-top: 3px; }
+  .compact .act span { display: none; }
+  .compact .confirm { flex-direction: row; justify-content: space-between; padding: 6px 8px; font-size: 12px; text-align: start; }
+  /* Ventana compacta más ancha: vuelven las tarjetas grandes y crecen con el ancho. */
+  @media (min-width: 460px) {
+    .compact .grid { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
+    .compact .card { flex-direction: column; align-items: stretch; }
+    .compact .card svg { width: 100%; }
+    .compact .info { padding: 8px 10px 10px; }
+    .compact .act span { display: inline; }
+    .compact .confirm { flex-direction: column; justify-content: center; text-align: center; }
+  }
+  .settings { position: relative; }
+  .gear { padding: 5px 8px; line-height: 1; }
+  .menu {
+    position: absolute; top: calc(100% + 6px); inset-inline-end: 0; z-index: 10;
+    display: grid; gap: 10px; min-width: 220px; padding: 10px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  }
+  .menu[hidden] { display: none; }
+  .field { display: grid; gap: 4px; font-size: 12px; color: var(--dim); }
+  .field select { width: 100%; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .working .dot { animation: none; }
+    .card, .actions { transition: none; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1 data-t="title"></h1>
+    <span class="count" id="count"></span>
+    <div class="settings">
+      <button class="tool gear" id="gear" type="button" aria-haspopup="true" aria-expanded="false" data-t-title="lang">⚙</button>
+      <button class="tool fold" id="fold" type="button" aria-expanded="true">▾</button>
+      <div class="menu" id="menu" hidden>
+        <label class="field"><span data-t="lang"></span><select class="tool" id="lang"></select></label>
+        <label class="toggle"><input type="checkbox" id="notify" /> <span data-t="notify"></span></label>
+      </div>
+    </div>
+    <button class="tool" id="pip" type="button" data-t="float" data-t-title="floatTip"></button>
+  </header>
+  <div class="chips" id="chips"></div>
+  <div class="grid" id="grid"></div>
+  <p class="hint" data-t="hint"></p>
+  <div id="toasts" role="status" aria-live="polite"></div>
+</div>
+
+<script>
+  // ---------- idiomas ----------
+  // Orden: title, working, paused, float, floatTip, hint, connecting, reconnecting, noData, waiting,
+  // away, stWorking, stPaused, archive, stop, confirmArchive, confirmStop, queued, done, failed,
+  // all, notify, finished, self, lang
+  const KEYS = ['title','working','paused','float','floatTip','hint','connecting','reconnecting','noData','waiting','away','stWorking','stPaused','archive','stop','confirmArchive','confirmStop','queued','done','failed','all','notify','finished','self','lang','permHint','delete','confirmDelete','theme','archived','fold','unfold']
+  const LANGS = {
+    es: ['Español', ['Oficina','{n} trabajando','{n} en pausa','Flotar','Ventana flotante siempre encima','Pulsa una tarjeta para ir a esa sesión.','Conectando…','Reconectando…','Sin datos todavía','Esperando a que Claude envíe tus sesiones…','La oficina está en la ventana flotante.','Trabajando','En pausa','Archivar','Detener','¿Archivar «{t}»?','¿Detener lo que está haciendo «{t}»?','Enviado. Puede que la app te pida confirmarlo.','Hecho','No se pudo','Todos','Avisarme cuando una termine','«{t}» ha terminado','Esta sesión','Idioma','Falta permiso. Añade esta regla a permissions.allow en ~/.claude/settings.json:','Eliminar','¿Eliminar «{t}» para siempre? No se puede deshacer.','Cambiar decoración','Se ha archivado «{t}»','Plegar','Desplegar']],
+    en: ['English', ['Office','{n} working','{n} idle','Float','Floating window that stays on top','Click a card to jump to that session.','Connecting…','Reconnecting…','No data yet','Waiting for Claude to send your sessions…','The office is in the floating window.','Working','Idle','Archive','Stop','Archive “{t}”?','Stop what “{t}” is doing?','Sent. The app may ask you to confirm.','Done','Couldn’t do it','All','Notify me when one finishes','“{t}” has finished','This session','Language','Missing permission. Add this rule to permissions.allow in ~/.claude/settings.json:','Delete','Delete “{t}” for good? This can’t be undone.','Change decor','“{t}” has been archived','Collapse','Expand']],
+    zh: ['中文', ['办公室','{n} 个工作中','{n} 个空闲','悬浮','始终置顶的悬浮窗口','点击卡片即可跳转到该会话。','正在连接…','正在重新连接…','暂无数据','正在等待 Claude 发送你的会话…','办公室已在悬浮窗口中。','工作中','空闲','归档','停止','归档“{t}”？','停止“{t}”正在做的事？','已发送，应用可能会请你确认。','完成','无法完成','全部','有会话完成时通知我','“{t}”已完成','当前会话','语言','缺少权限。请将此规则添加到 ~/.claude/settings.json 的 permissions.allow 中：','删除','永久删除“{t}”？此操作无法撤销。','更换装饰','已归档“{t}”','收起','展开']],
+    hi: ['हिन्दी', ['ऑफ़िस','{n} काम कर रहे','{n} खाली','फ़्लोट','हमेशा ऊपर रहने वाली फ़्लोटिंग विंडो','उस सत्र पर जाने के लिए कार्ड पर क्लिक करें।','कनेक्ट हो रहा है…','फिर से कनेक्ट हो रहा है…','अभी कोई डेटा नहीं','Claude के आपके सत्र भेजने की प्रतीक्षा…','ऑफ़िस फ़्लोटिंग विंडो में है।','काम कर रहा है','खाली','संग्रहित करें','रोकें','“{t}” को संग्रहित करें?','“{t}” जो कर रहा है उसे रोकें?','भेजा गया। ऐप पुष्टि माँग सकता है।','हो गया','नहीं हो सका','सभी','किसी के पूरा होने पर सूचित करें','“{t}” पूरा हो गया','यह सत्र','भाषा','अनुमति नहीं है। यह नियम ~/.claude/settings.json में permissions.allow में जोड़ें:','हटाएँ','“{t}” को हमेशा के लिए हटाएँ? इसे पूर्ववत नहीं किया जा सकता।','सजावट बदलें','“{t}” संग्रहित कर दिया गया','समेटें','फैलाएँ']],
+    fr: ['Français', ['Bureau','{n} au travail','{n} en pause','Flotter','Fenêtre flottante toujours au premier plan','Cliquez sur une carte pour ouvrir cette session.','Connexion…','Reconnexion…','Pas encore de données','En attente des sessions envoyées par Claude…','Le bureau est dans la fenêtre flottante.','Au travail','En pause','Archiver','Arrêter','Archiver « {t} » ?','Arrêter ce que fait « {t} » ?','Envoyé. L’app peut vous demander de confirmer.','Fait','Impossible','Toutes','Me prévenir quand une session termine','« {t} » a terminé','Cette session','Langue','Autorisation manquante. Ajoutez cette règle à permissions.allow dans ~/.claude/settings.json :','Supprimer','Supprimer « {t} » définitivement ? Action irréversible.','Changer le décor','« {t} » a été archivée','Replier','Déplier']],
+    ar: ['العربية', ['المكتب','{n} تعمل','{n} متوقفة','تعويم','نافذة عائمة تبقى في الأعلى دائمًا','انقر على بطاقة للانتقال إلى تلك الجلسة.','جارٍ الاتصال…','جارٍ إعادة الاتصال…','لا توجد بيانات بعد','في انتظار أن يرسل Claude جلساتك…','المكتب في النافذة العائمة.','تعمل','متوقفة','أرشفة','إيقاف','أرشفة «{t}»؟','إيقاف ما تفعله «{t}»؟','تم الإرسال. قد يطلب منك التطبيق التأكيد.','تم','تعذّر التنفيذ','الكل','نبّهني عند انتهاء جلسة','انتهت «{t}»','هذه الجلسة','اللغة','الإذن مفقود. أضف هذه القاعدة إلى permissions.allow في ~/.claude/settings.json:','حذف','حذف «{t}» نهائيًا؟ لا يمكن التراجع عن ذلك.','تغيير الديكور','تمت أرشفة «{t}»','طيّ','توسيع']],
+    bn: ['বাংলা', ['অফিস','{n}টি কাজ করছে','{n}টি বিরতিতে','ভাসমান','সবসময় উপরে থাকা ভাসমান উইন্ডো','সেই সেশনে যেতে একটি কার্ডে ক্লিক করুন।','সংযোগ হচ্ছে…','আবার সংযোগ হচ্ছে…','এখনও কোনো ডেটা নেই','Claude আপনার সেশন পাঠানোর অপেক্ষায়…','অফিসটি ভাসমান উইন্ডোতে আছে।','কাজ করছে','বিরতিতে','আর্কাইভ','থামান','“{t}” আর্কাইভ করবেন?','“{t}” যা করছে তা থামাবেন?','পাঠানো হয়েছে। অ্যাপ নিশ্চিত করতে বলতে পারে।','সম্পন্ন','করা যায়নি','সব','কোনোটি শেষ হলে জানান','“{t}” শেষ হয়েছে','এই সেশন','ভাষা','অনুমতি নেই। ~/.claude/settings.json-এর permissions.allow-এ এই নিয়মটি যোগ করুন:','মুছুন','“{t}” চিরতরে মুছবেন? এটি আর ফেরানো যাবে না।','সাজসজ্জা বদলান','“{t}” আর্কাইভ করা হয়েছে','গুটিয়ে নিন','প্রসারিত করুন']],
+    pt: ['Português', ['Escritório','{n} trabalhando','{n} em pausa','Flutuar','Janela flutuante sempre por cima','Clique num cartão para ir para essa sessão.','Conectando…','Reconectando…','Ainda sem dados','Aguardando o Claude enviar suas sessões…','O escritório está na janela flutuante.','Trabalhando','Em pausa','Arquivar','Parar','Arquivar “{t}”?','Parar o que “{t}” está fazendo?','Enviado. O app pode pedir confirmação.','Feito','Não foi possível','Todas','Avisar quando uma terminar','“{t}” terminou','Esta sessão','Idioma','Falta permissão. Adicione esta regra a permissions.allow em ~/.claude/settings.json:','Excluir','Excluir “{t}” para sempre? Não dá para desfazer.','Mudar decoração','“{t}” foi arquivada','Recolher','Expandir']],
+    ru: ['Русский', ['Офис','{n} работают','{n} на паузе','Поверх окон','Плавающее окно поверх всех окон','Нажмите на карточку, чтобы открыть сессию.','Подключение…','Переподключение…','Данных пока нет','Ждём, пока Claude пришлёт ваши сессии…','Офис открыт в плавающем окне.','Работает','На паузе','В архив','Остановить','Архивировать «{t}»?','Остановить то, что делает «{t}»?','Отправлено. Приложение может попросить подтверждение.','Готово','Не удалось','Все','Сообщать, когда сессия завершится','«{t}» завершена','Эта сессия','Язык','Нет разрешения. Добавьте это правило в permissions.allow в ~/.claude/settings.json:','Удалить','Удалить «{t}» навсегда? Это нельзя отменить.','Сменить оформление','«{t}» перемещена в архив','Свернуть','Развернуть']],
+    ur: ['اردو', ['دفتر','{n} کام میں','{n} رکے ہوئے','تیرتی ونڈو','ہمیشہ اوپر رہنے والی تیرتی ونڈو','اس سیشن پر جانے کے لیے کارڈ پر کلک کریں۔','جڑ رہا ہے…','دوبارہ جڑ رہا ہے…','ابھی کوئی ڈیٹا نہیں','Claude کے آپ کے سیشن بھیجنے کا انتظار…','دفتر تیرتی ونڈو میں ہے۔','کام میں','رکا ہوا','آرکائیو','روکیں','«{t}» آرکائیو کریں؟','«{t}» جو کر رہا ہے اسے روکیں؟','بھیج دیا۔ ایپ تصدیق مانگ سکتی ہے۔','ہو گیا','نہیں ہو سکا','سب','کسی کے ختم ہونے پر مطلع کریں','«{t}» ختم ہو گیا','یہ سیشن','زبان','اجازت نہیں ہے۔ یہ اصول ~/.claude/settings.json میں permissions.allow میں شامل کریں:','حذف کریں','«{t}» ہمیشہ کے لیے حذف کریں؟ یہ واپس نہیں ہو سکتا۔','سجاوٹ بدلیں','«{t}» آرکائیو کر دیا گیا','سمیٹیں','پھیلائیں']],
+    id: ['Bahasa Indonesia', ['Kantor','{n} bekerja','{n} jeda','Melayang','Jendela melayang yang selalu di atas','Klik kartu untuk membuka sesi itu.','Menghubungkan…','Menghubungkan ulang…','Belum ada data','Menunggu Claude mengirim sesi Anda…','Kantor ada di jendela melayang.','Bekerja','Jeda','Arsipkan','Hentikan','Arsipkan “{t}”?','Hentikan yang sedang dikerjakan “{t}”?','Terkirim. Aplikasi mungkin meminta konfirmasi.','Selesai','Gagal','Semua','Beri tahu saat ada yang selesai','“{t}” telah selesai','Sesi ini','Bahasa','Izin belum ada. Tambahkan aturan ini ke permissions.allow di ~/.claude/settings.json:','Hapus','Hapus “{t}” selamanya? Tidak bisa dibatalkan.','Ganti dekorasi','“{t}” telah diarsipkan','Ciutkan','Bentangkan']],
+    de: ['Deutsch', ['Büro','{n} arbeiten','{n} pausiert','Schweben','Schwebendes Fenster, immer im Vordergrund','Klicke auf eine Karte, um die Sitzung zu öffnen.','Verbinde…','Verbinde erneut…','Noch keine Daten','Warte darauf, dass Claude deine Sitzungen sendet…','Das Büro ist im schwebenden Fenster.','Arbeitet','Pausiert','Archivieren','Stoppen','„{t}“ archivieren?','Stoppen, was „{t}“ gerade macht?','Gesendet. Die App fragt eventuell nach.','Erledigt','Hat nicht geklappt','Alle','Benachrichtigen, wenn eine fertig ist','„{t}“ ist fertig','Diese Sitzung','Sprache','Berechtigung fehlt. Füge diese Regel zu permissions.allow in ~/.claude/settings.json hinzu:','Löschen','„{t}“ endgültig löschen? Das lässt sich nicht rückgängig machen.','Deko ändern','„{t}“ wurde archiviert','Einklappen','Ausklappen']],
+    ja: ['日本語', ['オフィス','作業中 {n}','待機中 {n}','フロート','常に最前面に表示されるフローティングウィンドウ','カードをクリックするとそのセッションに移動します。','接続中…','再接続中…','まだデータがありません','Claude がセッションを送るのを待っています…','オフィスはフローティングウィンドウにあります。','作業中','待機中','アーカイブ','停止','「{t}」をアーカイブしますか？','「{t}」の作業を停止しますか？','送信しました。アプリが確認を求めることがあります。','完了','できませんでした','すべて','終わったら通知する','「{t}」が完了しました','このセッション','言語','権限がありません。~/.claude/settings.json の permissions.allow にこのルールを追加してください:','削除','「{t}」を完全に削除しますか？元に戻せません。','内装を変更','「{t}」をアーカイブしました','折りたたむ','展開']],
+    mr: ['मराठी', ['ऑफिस','{n} काम करत आहेत','{n} थांबलेले','फ्लोट','नेहमी वर राहणारी फ्लोटिंग विंडो','त्या सत्रावर जाण्यासाठी कार्डवर क्लिक करा.','जोडत आहे…','पुन्हा जोडत आहे…','अजून डेटा नाही','Claude तुमची सत्रे पाठवण्याची वाट पाहत आहे…','ऑफिस फ्लोटिंग विंडोमध्ये आहे.','काम करत आहे','थांबलेले','संग्रहित करा','थांबवा','“{t}” संग्रहित करायचे?','“{t}” जे करत आहे ते थांबवायचे?','पाठवले. ॲप पुष्टी मागू शकते.','झाले','जमले नाही','सर्व','एखादे संपल्यावर कळवा','“{t}” पूर्ण झाले','हे सत्र','भाषा','परवानगी नाही. ~/.claude/settings.json मधील permissions.allow मध्ये हा नियम जोडा:','हटवा','“{t}” कायमचे हटवायचे? हे पूर्ववत करता येणार नाही.','सजावट बदला','“{t}” संग्रहित केले','मिटवा','विस्तृत करा']],
+    te: ['తెలుగు', ['ఆఫీస్','{n} పనిలో','{n} విరామంలో','ఫ్లోట్','ఎల్లప్పుడూ పైన ఉండే ఫ్లోటింగ్ విండో','ఆ సెషన్‌కు వెళ్లడానికి కార్డ్‌పై క్లిక్ చేయండి.','కనెక్ట్ అవుతోంది…','మళ్లీ కనెక్ట్ అవుతోంది…','ఇంకా డేటా లేదు','Claude మీ సెషన్లను పంపే వరకు వేచి ఉంది…','ఆఫీస్ ఫ్లోటింగ్ విండోలో ఉంది.','పనిలో ఉంది','విరామంలో','ఆర్కైవ్','ఆపు','“{t}” ఆర్కైవ్ చేయాలా?','“{t}” చేస్తున్నది ఆపాలా?','పంపబడింది. యాప్ నిర్ధారణ అడగవచ్చు.','పూర్తయింది','చేయలేకపోయాం','అన్నీ','ఏదైనా పూర్తయినప్పుడు తెలియజేయి','“{t}” పూర్తయింది','ఈ సెషన్','భాష','అనుమతి లేదు. ~/.claude/settings.json లోని permissions.allow లో ఈ నియమాన్ని జోడించండి:','తొలగించు','“{t}” శాశ్వతంగా తొలగించాలా? దీన్ని రద్దు చేయలేరు.','అలంకరణ మార్చు','“{t}” ఆర్కైవ్ చేయబడింది','ముడుచు','విస్తరించు']],
+    tr: ['Türkçe', ['Ofis','{n} çalışıyor','{n} beklemede','Yüzdür','Her zaman üstte kalan yüzen pencere','O oturuma gitmek için bir karta tıklayın.','Bağlanıyor…','Yeniden bağlanıyor…','Henüz veri yok','Claude’un oturumlarınızı göndermesi bekleniyor…','Ofis yüzen pencerede.','Çalışıyor','Beklemede','Arşivle','Durdur','“{t}” arşivlensin mi?','“{t}” yaptığı işi durdursun mu?','Gönderildi. Uygulama onay isteyebilir.','Tamam','Yapılamadı','Tümü','Biri bitince haber ver','“{t}” bitti','Bu oturum','Dil','İzin eksik. Bu kuralı ~/.claude/settings.json içindeki permissions.allow listesine ekleyin:','Sil','“{t}” kalıcı olarak silinsin mi? Geri alınamaz.','Dekoru değiştir','“{t}” arşivlendi','Daralt','Genişlet']],
+    ta: ['தமிழ்', ['அலுவலகம்','{n} வேலையில்','{n} இடைநிறுத்தத்தில்','மிதக்கவை','எப்போதும் மேலே இருக்கும் மிதக்கும் சாளரம்','அந்த அமர்வுக்குச் செல்ல ஒரு அட்டையைக் கிளிக் செய்யவும்.','இணைக்கிறது…','மீண்டும் இணைக்கிறது…','இன்னும் தரவு இல்லை','Claude உங்கள் அமர்வுகளை அனுப்பக் காத்திருக்கிறது…','அலுவலகம் மிதக்கும் சாளரத்தில் உள்ளது.','வேலையில்','இடைநிறுத்தம்','காப்பகப்படுத்து','நிறுத்து','“{t}” காப்பகப்படுத்தவா?','“{t}” செய்வதை நிறுத்தவா?','அனுப்பப்பட்டது. செயலி உறுதிப்படுத்தக் கேட்கலாம்.','முடிந்தது','முடியவில்லை','அனைத்தும்','ஒன்று முடிந்ததும் தெரிவி','“{t}” முடிந்தது','இந்த அமர்வு','மொழி','அனுமதி இல்லை. ~/.claude/settings.json இல் உள்ள permissions.allow இல் இந்த விதியைச் சேர்க்கவும்:','நீக்கு','“{t}” நிரந்தரமாக நீக்கவா? இதைத் திரும்பப் பெற முடியாது.','அலங்காரத்தை மாற்று','“{t}” காப்பகப்படுத்தப்பட்டது','சுருக்கு','விரி']],
+    vi: ['Tiếng Việt', ['Văn phòng','{n} đang làm','{n} tạm dừng','Nổi','Cửa sổ nổi luôn ở trên cùng','Nhấp vào thẻ để chuyển đến phiên đó.','Đang kết nối…','Đang kết nối lại…','Chưa có dữ liệu','Đang chờ Claude gửi các phiên của bạn…','Văn phòng đang ở cửa sổ nổi.','Đang làm','Tạm dừng','Lưu trữ','Dừng','Lưu trữ “{t}”?','Dừng việc “{t}” đang làm?','Đã gửi. Ứng dụng có thể yêu cầu bạn xác nhận.','Xong','Không thực hiện được','Tất cả','Báo khi có phiên xong','“{t}” đã xong','Phiên này','Ngôn ngữ','Thiếu quyền. Hãy thêm quy tắc này vào permissions.allow trong ~/.claude/settings.json:','Xóa','Xóa vĩnh viễn “{t}”? Không thể hoàn tác.','Đổi trang trí','Đã lưu trữ “{t}”','Thu gọn','Mở rộng']],
+    ko: ['한국어', ['오피스','작업 중 {n}','대기 중 {n}','띄우기','항상 위에 떠 있는 창','카드를 클릭하면 해당 세션으로 이동합니다.','연결 중…','다시 연결 중…','아직 데이터가 없습니다','Claude가 세션을 보내기를 기다리는 중…','오피스가 떠 있는 창에 있습니다.','작업 중','대기 중','보관','중지','“{t}”을(를) 보관할까요?','“{t}”이(가) 하는 작업을 중지할까요?','보냈습니다. 앱에서 확인을 요청할 수 있습니다.','완료','실패했습니다','전체','끝나면 알림 받기','“{t}” 완료','이 세션','언어','권한이 없습니다. ~/.claude/settings.json의 permissions.allow에 이 규칙을 추가하세요:','삭제','“{t}”을(를) 영구 삭제할까요? 되돌릴 수 없습니다.','꾸미기 변경','“{t}” 보관됨','접기','펼치기']],
+    it: ['Italiano', ['Ufficio','{n} al lavoro','{n} in pausa','Fluttua','Finestra fluttuante sempre in primo piano','Fai clic su una scheda per aprire quella sessione.','Connessione…','Riconnessione…','Ancora nessun dato','In attesa che Claude invii le tue sessioni…','L’ufficio è nella finestra fluttuante.','Al lavoro','In pausa','Archivia','Ferma','Archiviare «{t}»?','Fermare ciò che sta facendo «{t}»?','Inviato. L’app potrebbe chiederti conferma.','Fatto','Non è stato possibile','Tutte','Avvisami quando una finisce','«{t}» ha finito','Questa sessione','Lingua','Manca il permesso. Aggiungi questa regola a permissions.allow in ~/.claude/settings.json:','Elimina','Eliminare «{t}» per sempre? Non si può annullare.','Cambia arredamento','«{t}» è stata archiviata','Comprimi','Espandi']],
+  }
+  const RTL = new Set(['ar', 'ur'])
+  const store = {
+    get: (k, d) => { try { return localStorage.getItem('oficina.' + k) ?? d } catch { return d } },
+    set: (k, v) => { try { localStorage.setItem('oficina.' + k, v) } catch {} },
+  }
+  const guessLang = () => {
+    for (const l of navigator.languages ?? [navigator.language]) {
+      const base = String(l).toLowerCase().split('-')[0]
+      if (LANGS[base]) return base
+    }
+    return 'es'
+  }
+  let lang = store.get('lang', '') || guessLang()
+  if (!LANGS[lang]) lang = 'es'
+  const T = (key, vars = {}) => {
+    const i = KEYS.indexOf(key)
+    const s = (LANGS[lang][1][i] ?? LANGS.es[1][i] ?? key)
+    return s.replace(/\{(\w)\}/g, (_, v) => String(vars[v] ?? ''))
+  }
+
+  // ---------- dibujo ----------
+  const SHIRTS = ['#e4572e', '#29335c', '#f3a712', '#669bbc', '#8f2d56', '#2a9d8f', '#7b2cbf', '#d62828']
+  const HAIRS = ['#2b1d14', '#6b3e26', '#d9a441', '#1b1b1b', '#a23b2a', '#5c5c5c']
+  const SKINS = ['#f1c27d', '#e0ac69', '#c68642', '#8d5524', '#ffdbac']
+  const W = 160, H = 112, P = 4
+  // Decoración por departamento (carpeta): suelo A, suelo B, alfombra.
+  const THEMES = [
+    ['#d8c3a5', '#cdb594', '#e9dfcf'], // madera
+    ['#9bb1d4', '#8aa2c8', '#dfe7f3'], // moqueta azul
+    ['#a7c4a0', '#98b891', '#eef3e2'], // jardín
+    ['#e6e6ea', '#d9d9df', '#f7f1e3'], // mármol
+    ['#5a5f7d', '#4f5470', '#7d81a0'], // noche
+    ['#e8b4bc', '#dfa3ad', '#f8e1e4'], // rosa
+    ['#e9d8a6', '#dccb93', '#f5ecd0'], // arena
+    ['#b8e0d2', '#a6d4c4', '#e8f6f0'], // menta
+  ]
+  const hash = t => { let h = 2166136261; for (let i = 0; i < t.length; i++) h = Math.imul(h ^ t.charCodeAt(i), 16777619); return Math.abs(h) }
+  const esc = t => String(t).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`)
+  const px = (x, y, w, h, fill, extra = '') => `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${fill}"${extra}/>`
+
+  function desk(d) {
+    const ti = themeOf(d.project), [fa, fb, rug] = THEMES[ti]
+    const seed = hash(d.id)
+    const shirt = SHIRTS[hash(d.project) % SHIRTS.length]
+    const hair = HAIRS[seed % HAIRS.length]
+    const skin = SKINS[(seed >> 3) % SKINS.length]
+    const delay = ((seed % 7) / 10).toFixed(1)
+    const on = d.isRunning
+    const o = []
+    o.push(`<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" aria-hidden="true">`)
+    o.push(`<defs><pattern id="f${ti}" width="32" height="32" patternUnits="userSpaceOnUse"><rect width="32" height="32" fill="${fa}"/><rect width="16" height="16" fill="${fb}"/><rect x="16" y="16" width="16" height="16" fill="${fb}"/></pattern></defs>`)
+    o.push(px(0, 0, W, H, `url(#f${ti})`))
+    o.push(px(12, 18, W - 24, 92, rug, ' rx="6"'))
+    o.push(px(34, 44, 36, 34, '#4a4e69', ' rx="4"'))
+    const cx = 38, cy = 30
+    o.push(`<g>${on
+      ? `<animateTransform attributeName="transform" type="translate" values="0 0;0 -2;0 0" dur="0.6s" begin="${delay}s" repeatCount="indefinite"/>`
+      : `<animateTransform attributeName="transform" type="rotate" values="-4 52 58;-7 52 58;-4 52 58" dur="3s" repeatCount="indefinite"/>`}`)
+    o.push(px(cx + P * 2, cy, P * 3, P, hair), px(cx + P, cy + P, P * 5, P, hair), px(cx + P, cy + P * 2, P * 5, P * 3, skin))
+    if (on) o.push(px(cx + P * 2, cy + P * 3, P, P, '#1b1b1b'), px(cx + P * 4, cy + P * 3, P, P, '#1b1b1b'))
+    else o.push(px(cx + P * 2, cy + P * 3 + 2, P, 2, '#1b1b1b'), px(cx + P * 4, cy + P * 3 + 2, P, 2, '#1b1b1b'))
+    o.push(px(cx, cy + P * 5, P * 7, P * 3, shirt), '</g>')
+    o.push(px(18, 66, W - 36, 12, '#a0703c'), px(18, 78, W - 36, 4, '#7a5229'), px(24, 82, 6, 26, '#7a5229'), px(W - 30, 82, 6, 26, '#7a5229'))
+    const hand = (x, b) => `<rect x="${x}" y="62" width="${P * 2}" height="${P}" fill="${skin}">${on ? `<animate attributeName="y" values="62;58;62" dur="0.25s" begin="${b}" repeatCount="indefinite"/>` : ''}</rect>`
+    o.push(hand(cx + 2, '0s'), hand(cx + P * 5 - 2, '0.12s'))
+    o.push(px(84, 30, 44, 32, '#22223b', ' rx="2"'))
+    if (on) {
+      o.push(`<rect x="87" y="33" width="38" height="24" fill="#7fd6ff"><animate attributeName="opacity" values="1;0.75;1" dur="1.4s" repeatCount="indefinite"/></rect>`)
+      for (let i = 0; i < 3; i++) o.push(`<rect x="90" y="${37 + i * 6}" width="10" height="2" fill="#1d3557"><animate attributeName="width" values="4;${20 + i * 5};4" dur="${1 + i * 0.3}s" repeatCount="indefinite"/></rect>`)
+      o.push(px(18, 4, 34, 18, '#fff', ' rx="5" stroke="#22223b" stroke-width="1.5"'))
+      for (let i = 0; i < 3; i++) o.push(`<rect x="${25 + i * 8}" y="12" width="4" height="4" fill="#22223b"><animate attributeName="opacity" values="0.2;1;0.2" dur="1s" begin="${i * 0.2}s" repeatCount="indefinite"/></rect>`)
+    } else {
+      o.push(px(87, 33, 38, 24, '#2b3440'))
+      o.push(`<text x="66" y="30" font-family="monospace" font-size="13" font-weight="bold" fill="#6c7a89">z<animate attributeName="y" values="34;14" dur="2.4s" repeatCount="indefinite"/><animate attributeName="opacity" values="1;0" dur="2.4s" repeatCount="indefinite"/></text>`)
+    }
+    o.push(px(102, 62, 8, 4, '#22223b'))
+    if (seed % 3 === 0) o.push(px(W - 26, 50, 10, 16, '#bc6c25'), px(W - 30, 38, 18, 14, '#40916c', ' rx="6"'))
+    o.push('</svg>')
+    return o.join('')
+  }
+
+  function ago(iso) {
+    if (!iso) return ''
+    const s = (Date.parse(iso) - Date.now()) / 1000
+    const rtf = new Intl.RelativeTimeFormat(lang, { numeric: 'auto' })
+    const a = Math.abs(s)
+    if (a < 60) return rtf.format(Math.round(s), 'second')
+    if (a < 3600) return rtf.format(Math.round(s / 60), 'minute')
+    if (a < 86400) return rtf.format(Math.round(s / 3600), 'hour')
+    return rtf.format(Math.round(s / 86400), 'day')
+  }
+
+  function themeOf(project) {
+    const raw = store.get('theme.' + project, '')
+    const saved = Number(raw)
+    return raw !== '' && Number.isInteger(saved) && saved >= 0 && saved < THEMES.length
+      ? saved
+      : hash(project) % THEMES.length
+  }
+  function cycleTheme(project) {
+    store.set('theme.' + project, String((themeOf(project) + 1) % THEMES.length))
+  }
+  function paintBackground() {
+    for (const d of [document, pipWin?.document].filter(Boolean)) {
+      d.body.style.background = filter
+        ? `color-mix(in srgb, ${THEMES[themeOf(filter)][1]} 14%, #1c1d26)`
+        : ''
+    }
+  }
+
+  // ---------- estado ----------
+  let current = { desks: [], updatedAt: 0 }
+  let connected = false
+  let filter = store.get('filter', '')
+  let confirming = null // { id, action }
+  let pipWin = null
+  const wasRunning = new Map()
+  const doc = () => pipWin?.document ?? document
+  const el = id => doc().getElementById(id)
+
+  function toast(text, bad = false) {
+    const box = el('toasts')
+    if (!box) return
+    const t = doc().createElement('div')
+    t.className = 'toast' + (bad ? ' bad' : '')
+    t.textContent = text
+    box.append(t)
+    setTimeout(() => t.remove(), 5000)
+  }
+
+  async function post(path, body) {
+    const res = await fetch(path, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-oficina': '1' },
+      body: JSON.stringify(body),
+    })
+    return res.ok
+  }
+
+  async function openSession(link, where) {
+    try { if (await post('/api/open', { link })) return } catch {}
+    const a = where.createElement('a')
+    a.href = link
+    where.body.appendChild(a)
+    a.click()
+    a.remove()
+  }
+
+  async function runAction(action, d) {
+    confirming = null
+    try {
+      // Sin aviso al enviar: el resultado llega por el evento «result».
+      if (!(await post('/api/action', { action, sessionId: d.id }))) toast(T('failed'), true)
+    } catch {
+      toast(T('failed'), true)
+    }
+    render()
+  }
+
+  // ---------- avisos ----------
+  let audio = null
+  function chime() {
+    try {
+      audio ??= new AudioContext()
+      const now = audio.currentTime
+      ;[660, 880].forEach((f, i) => {
+        const o = audio.createOscillator(), g = audio.createGain()
+        o.frequency.value = f
+        g.gain.setValueAtTime(0.0001, now + i * 0.15)
+        g.gain.exponentialRampToValueAtTime(0.15, now + i * 0.15 + 0.02)
+        g.gain.exponentialRampToValueAtTime(0.0001, now + i * 0.15 + 0.3)
+        o.connect(g).connect(audio.destination)
+        o.start(now + i * 0.15)
+        o.stop(now + i * 0.15 + 0.32)
+      })
+    } catch {}
+  }
+
+  function checkFinished(desks) {
+    const notify = store.get('notify', '0') === '1'
+    for (const d of desks) {
+      const before = wasRunning.get(d.id)
+      if (before === true && !d.isRunning && !d.isSelf && notify) {
+        const text = T('finished', { t: d.title })
+        chime()
+        toast(text)
+        if ('Notification' in window && Notification.permission === 'granted') {
+          const n = new Notification(T('title'), { body: text, tag: d.id })
+          n.onclick = () => { if (d.link) void openSession(d.link, document) }
+        }
+      }
+      wasRunning.set(d.id, d.isRunning)
+    }
+  }
+
+  // ---------- pintado ----------
+  function applyLang() {
+    for (const d of [document, pipWin?.document].filter(Boolean)) {
+      d.documentElement.lang = lang
+      d.documentElement.dir = RTL.has(lang) ? 'rtl' : 'ltr'
+      d.querySelectorAll('[data-t]').forEach(n => { n.textContent = T(n.dataset.t) })
+      d.querySelectorAll('[data-t-title]').forEach(n => { n.title = T(n.dataset.tTitle) })
+      const sel = d.getElementById('lang')
+      if (sel) sel.setAttribute('aria-label', T('lang'))
+    }
+    // Marca invisible (dos U+2060) para que pin.ps1 encuentre la ventana compacta sin ensuciar el título.
+    document.title = T('title') + (IS_MINI ? '\u2060\u2060' : '')
+    if (IS_MINI || pipWin) applyFold()
+  }
+
+  function render() {
+    const all = current.desks
+    const working = all.filter(d => d.isRunning).length
+    el('count').innerHTML = !connected
+      ? esc(T('connecting'))
+      : all.length
+        ? `<b>${esc(T('working', { n: working }))}</b> · ${esc(T('paused', { n: all.length - working }))}`
+        : esc(T('noData'))
+
+    // filtros por proyecto
+    const projects = [...new Set(all.map(d => d.project))].sort()
+    if (filter && !projects.includes(filter)) filter = ''
+    el('chips').innerHTML = projects.length > 1
+      ? [['', T('all')], ...projects.map(p => [p, p])].map(([v, label]) =>
+          `<button class="chip" type="button" data-f="${esc(v)}" aria-pressed="${filter === v}">${esc(label)}</button>`).join('')
+      : ''
+    if (filter) {
+      el('chips').insertAdjacentHTML('beforeend',
+        `<button class="chip deco" type="button" data-deco title="${esc(T('theme'))}" aria-label="${esc(T('theme'))}: ${esc(filter)}">🎨 ${esc(T('theme'))}</button>`)
+    }
+    el('chips').querySelectorAll('.chip').forEach(c => c.addEventListener('click', () => {
+      if ('deco' in c.dataset) cycleTheme(filter)
+      else { filter = c.dataset.f; store.set('filter', filter) }
+      render()
+      fitWindow()
+    }))
+    paintBackground()
+
+    const desks = stableOrder(all).filter(d => !filter || d.project === filter)
+
+    const grid = el('grid')
+    if (!desks.length) {
+      grid.innerHTML = `<div class="empty">${esc(T('waiting'))}</div>`
+      return
+    }
+    grid.innerHTML = desks.map(d => {
+      const title = d.title
+      const conf = confirming && confirming.id === d.id ? confirming.action : null
+      const btn = (act, icon, enabled) =>
+        `<button class="act ${act}" type="button" data-act="${act}" title="${esc(T(act))}" aria-label="${esc(T(act))}"${enabled ? '' : ' disabled'}>${icon}<span>${esc(T(act))}</span></button>`
+      // Siempre los mismos botones: varias sesiones envían datos y cada una se marca a sí
+      // misma como «isSelf», así que depender de eso hacía aparecer y desaparecer botones.
+      const acts = `<div class="actions">${btn('stop', '■', d.isRunning)}${btn('archive', '⤓', !d.isRunning)}${btn('delete', '✕', !d.isRunning)}</div>`
+      const confirmBox = conf ? `<div class="confirm" data-stop>
+          <p>${esc(T({ stop: 'confirmStop', archive: 'confirmArchive', delete: 'confirmDelete' }[conf], { t: d.title }))}</p>
+          <div class="row"><button class="tool yes" type="button" data-yes="${conf}">${esc(T(conf))}</button><button class="tool" type="button" data-no aria-label="✕">✕</button></div>
+        </div>` : ''
+      return `<div class="card ${d.isRunning ? 'working' : ''} ${d.link ? '' : 'nolink'}" data-id="${esc(d.id)}"
+          ${d.link ? 'role="button" tabindex="0"' : ''} title="${esc(d.title)}">
+        ${desk(d)}
+        <div class="info">
+          <div class="title">${esc(title)}</div>
+          <div class="meta">${esc(d.project)}${d.pr ? ` · PR ${esc(d.pr)}` : ''}${d.group ? ` · ${esc(d.group)}` : ''}</div>
+          <div class="state"><span class="dot"></span>${esc(d.isRunning ? T('stWorking') : T('stPaused'))}${!d.isRunning && d.lastActivityAt ? ' · ' + esc(ago(d.lastActivityAt)) : ''}</div>
+          ${acts}
+        </div>
+        ${confirmBox}
+      </div>`
+    }).join('')
+
+    grid.querySelectorAll('.card').forEach(card => {
+      const d = desks.find(x => x.id === card.dataset.id)
+      if (!d) return
+      const open = () => { if (d.link) void openSession(d.link, card.ownerDocument) }
+      card.addEventListener('click', ev => {
+        const t = ev.target.closest('button, [data-stop]')
+        if (!t) return open()
+        ev.stopPropagation()
+        if (t.disabled) return
+        if (t.dataset.act) { confirming = { id: d.id, action: t.dataset.act }; render() }
+        else if (t.dataset.yes) void runAction(t.dataset.yes, d)
+        else if ('no' in t.dataset) { confirming = null; render() }
+      })
+      card.addEventListener('keydown', ev => {
+        if (ev.target === card && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); open() }
+      })
+    })
+  }
+
+  // Orden estable: cada tarjeta conserva su sitio entre refrescos (antes se reordenaban al cambiar
+  // de estado o de actividad y la cuadrícula «bailaba»). Las que aparecen después entran arriba.
+  const deskOrder = new Map()
+  let nextTop = 0
+  function stableOrder(list) {
+    const byActivity = [...list].sort((a, b) =>
+      (Date.parse(a.lastActivityAt ?? 0) || 0) - (Date.parse(b.lastActivityAt ?? 0) || 0))
+    for (const d of byActivity) if (!deskOrder.has(d.id)) deskOrder.set(d.id, --nextTop)
+    return [...list].sort((a, b) => deskOrder.get(a.id) - deskOrder.get(b.id))
+  }
+
+  // ---------- controles ----------
+  function setupControls(d) {
+    const gear = d.getElementById('gear'), menu = d.getElementById('menu')
+    if (gear && menu && !gear.dataset.ready) {
+      gear.dataset.ready = '1'
+      const setOpen = open => { menu.hidden = !open; gear.setAttribute('aria-expanded', String(open)) }
+      gear.addEventListener('click', ev => { ev.stopPropagation(); setOpen(menu.hidden) })
+      menu.addEventListener('click', ev => ev.stopPropagation())
+      d.addEventListener('click', () => setOpen(false))
+      d.addEventListener('keydown', ev => { if (ev.key === 'Escape') setOpen(false) })
+    }
+    const sel = d.getElementById('lang')
+    if (sel && !sel.options.length) {
+      sel.innerHTML = Object.entries(LANGS).map(([code, [name]]) => `<option value="${code}">${esc(name)}</option>`).join('')
+    }
+    if (sel) {
+      sel.value = lang
+      sel.onchange = () => { lang = sel.value; store.set('lang', lang); applyLang(); render() }
+    }
+    const nt = d.getElementById('notify')
+    if (nt) {
+      nt.checked = store.get('notify', '0') === '1'
+      nt.onchange = async () => {
+        if (nt.checked && 'Notification' in window && Notification.permission === 'default') {
+          await Notification.requestPermission()
+        }
+        store.set('notify', nt.checked ? '1' : '0')
+      }
+    }
+  }
+
+  const IS_MINI = new URLSearchParams(location.search).has('mini') || window.name === 'oficina-mini'
+
+  async function float() {
+    // 1º: ventana propia de Windows siempre encima (no la cierra otro PiP).
+    try {
+      if (await post('/api/pin', {})) return
+    } catch {}
+    // 2º: Picture-in-Picture del navegador.
+    const app = document.getElementById('app')
+    if (!('documentPictureInPicture' in window)) {
+      window.open(location.href, 'oficina-mini', 'popup,width=340,height=560')
+      return
+    }
+    pipWin = await documentPictureInPicture.requestWindow({ width: 340, height: 560 })
+    const style = pipWin.document.createElement('style')
+    style.textContent = document.getElementById('oficina-style').textContent
+    pipWin.document.head.append(style)
+    pipWin.document.documentElement.classList.add('compact')
+    pipWin.document.body.append(app)
+    const away = document.createElement('p')
+    away.className = 'empty'
+    away.id = 'away'
+    away.dataset.t = 'away'
+    document.body.append(away)
+    pipWin.addEventListener('pagehide', () => {
+      document.getElementById('away')?.remove()
+      document.body.prepend(app)
+      pipWin = null
+      applyLang()
+      render()
+    })
+    applyLang()
+    render()
+  }
+
+  document.getElementById('pip').addEventListener('click', () => void float())
+
+  // Plegar / desplegar la ventana compacta (se recuerda; por defecto desplegada).
+  function applyFold() {
+    const folded = store.get('folded', '0') === '1'
+    for (const d of [document, pipWin?.document].filter(Boolean)) {
+      d.documentElement.classList.toggle('folded', folded)
+      const b = d.getElementById('fold')
+      if (b) {
+        b.textContent = folded ? '▸' : '▾'
+        b.setAttribute('aria-expanded', String(!folded))
+        b.title = T(folded ? 'unfold' : 'fold')
+        b.setAttribute('aria-label', b.title)
+      }
+    }
+  }
+  document.getElementById('fold').addEventListener('click', () => {
+    store.set('folded', store.get('folded', '0') === '1' ? '0' : '1')
+    applyFold()
+    fitWindow()
+  })
+
+  // Ventana compacta: alto ajustado a las tarjetas (al cambiar cuántas hay o el ancho).
+  let lastFit = ''
+  let fitTimer = 0
+  function fitWindow() {
+    if (!IS_MINI || pipWin) return
+    clearTimeout(fitTimer)
+    fitTimer = setTimeout(async () => {
+      const key = `${current.desks.length}|${filter}|${window.innerWidth}|${store.get('folded', '0')}`
+      if (key === lastFit) return
+      lastFit = key
+      const chrome = window.outerHeight - window.innerHeight
+      const want = Math.round(Math.min(screen.availHeight * 0.9, Math.max(store.get('folded', '0') === '1' ? 60 : 220, Math.ceil(document.getElementById('app').getBoundingClientRect().height) + chrome)))
+      if (Math.abs(want - window.outerHeight) < 8) return
+      const before = window.outerHeight
+      try { window.resizeTo(window.outerWidth, want) } catch {}
+      await new Promise(r => setTimeout(r, 250))
+      if (Math.abs(window.outerHeight - before) < 4) {
+        try { await post('/api/resize', { height: want }) } catch {}
+      }
+    }, 300)
+  }
+  if (IS_MINI) {
+    let lastWidth = window.innerWidth
+    window.addEventListener('resize', () => {
+      if (window.innerWidth !== lastWidth) { lastWidth = window.innerWidth; fitWindow() }
+    })
+  }
+  if (new URLSearchParams(location.search).has('mini') || window.name === 'oficina-mini') {
+    document.documentElement.classList.add('compact')
+  }
+  setupControls(document)
+  applyLang()
+  if (IS_MINI) applyFold()
+  render()
+
+  // ---------- datos en vivo ----------
+  const es = new EventSource('/api/events')
+  es.onopen = () => { connected = true; render() }
+  es.onmessage = ev => {
+    connected = true
+    current = JSON.parse(ev.data)
+    checkFinished(current.desks)
+    render()
+    fitWindow()
+  }
+  es.addEventListener('result', ev => {
+    const r = JSON.parse(ev.data)
+    const d = current.desks.find(x => x.id === r.sessionId)
+    const name = d ? d.title : r.sessionId
+    if (r.ok) return toast(r.action === 'archive' ? T('archived', { t: name }) : `${T('done')}: ${T(r.action)} · ${name}`)
+    if (r.pending) return toast(`${name} · ${r.message}`)
+    if (NEEDS_PERMISSION.test(r.message ?? '')) return permissionHint(r.action)
+    toast(`${T('failed')}: ${name}${r.message ? ' · ' + r.message : ''}`, true)
+  })
+
+  // Falta el permiso de la herramienta: enseña la regla exacta para añadirla.
+  const NEEDS_PERMISSION = /classifier|permission|denied|not allowed|approv/i
+  const ACTION_TOOL = {
+    stop: 'mcp__ccd_session_mgmt__stop_session',
+    archive: 'mcp__ccd_session_mgmt__archive_session',
+  }
+  function permissionHint(action) {
+    const box = el('toasts')
+    if (!box) return
+    const d = doc()
+    const t = d.createElement('div')
+    t.className = 'toast bad'
+    const p = d.createElement('div')
+    p.textContent = `${T('failed')}: ${T(action)}. ${T('permHint')}`
+    const code = d.createElement('code')
+    code.className = 'rule'
+    code.textContent = ACTION_TOOL[action] ?? action
+    code.title = 'Copiar'
+    code.tabIndex = 0
+    const copy = () => navigator.clipboard?.writeText(code.textContent).then(() => code.classList.add('copied'), () => {})
+    code.addEventListener('click', copy)
+    code.addEventListener('keydown', ev => { if (ev.key === 'Enter') copy() })
+    const close = d.createElement('button')
+    close.className = 'act close'
+    close.type = 'button'
+    close.textContent = '✕'
+    close.setAttribute('aria-label', '✕')
+    close.addEventListener('click', () => t.remove())
+    t.append(close, p, code)
+    box.append(t)
+    setTimeout(() => t.remove(), 30_000)
+  }
+  es.onerror = () => { connected = false; el('count').textContent = T('reconnecting') }
+  setInterval(render, 30_000)
+</script>
+</body>
+</html>
