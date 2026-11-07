@@ -109,6 +109,23 @@
      tarjeta crea su propia capa y lo tapaba). */
   .card.menu-open { z-index: 40; transform: none; }
   .dropdown.up { top: auto; bottom: 30px; }
+  /* Arrastrar una tarjeta a otro grupo */
+  .dropbar {
+    position: sticky; top: 0; z-index: 50; display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+    margin: 0 0 10px; padding: 8px; background: var(--panel); border: 1px dashed var(--accent); border-radius: 10px;
+  }
+  .dropbar[hidden] { display: none; }
+  .dropbar .lbl { font-size: 11px; color: var(--dim); margin-inline-end: 2px; }
+  .zone {
+    font-size: 12px; padding: 5px 10px; border-radius: 999px;
+    color: var(--ink); background: var(--bg); border: 1px solid var(--line);
+  }
+  .zone.over, .section.over { border-color: var(--accent); color: var(--bg); background: var(--accent); }
+  .zone.off { opacity: 0.35; }
+  .section[data-drop] { border-radius: 6px; padding: 2px 4px; border: 1px solid transparent; }
+  .card.zone-over { border-color: var(--accent); }
+  .card[draggable='true'] { -webkit-user-drag: element; }
+  .dragging .card.is-dragged { opacity: 0.45; }
   .compact .info { padding-inline-end: 30px; }
   .mi {
     font: inherit; font-size: 12px; text-align: start; padding: 6px 8px; cursor: pointer;
@@ -235,6 +252,7 @@
     <button class="tool" id="pip" type="button" data-t="float" data-t-title="floatTip"></button>
   </header>
   <div class="chips" id="chips"></div>
+  <div class="dropbar" id="dropbar" hidden></div>
   <input class="search" id="search" type="search" autocomplete="off" hidden />
   <div class="grid" id="grid"></div>
   <p class="hint" data-t="hint"></p>
@@ -417,6 +435,88 @@
     a.remove()
   }
 
+  // ---------- arrastrar a un grupo ----------
+  let dragId = null
+  let renderLater = false
+  function zoneLabel(zone) {
+    if (zone === 'pinned') return T('pinned')
+    if (zone === 'nogroup') return T('noGroup')
+    return (current.groups ?? []).find(g => `group:${g.id}` === zone)?.name ?? ''
+  }
+  function zonesFor(d) {
+    const zones = ['pinned', ...(current.groups ?? []).map(g => `group:${g.id}`), 'nogroup']
+    const here = d.pinned ? 'pinned' : d.group ? `group:${(current.groups ?? []).find(g => g.name === d.group)?.id}` : 'nogroup'
+    return zones.map(z => ({ zone: z, label: zoneLabel(z), off: z === here }))
+  }
+  function showDropbar(d) {
+    const bar = el('dropbar')
+    if (!bar) return
+    bar.innerHTML = `<span class="lbl">${esc(T('moveTo'))}</span>` +
+      zonesFor(d).map(z => `<span class="zone${z.off ? ' off' : ''}" data-drop="${esc(z.zone)}">${esc(z.label)}</span>`).join('')
+    bar.hidden = false
+  }
+  function endDrag() {
+    dragId = null
+    doc().documentElement.classList.remove('dragging')
+    const bar = el('dropbar')
+    if (bar) { bar.hidden = true; bar.innerHTML = '' }
+    if (renderLater) { renderLater = false; render() }
+    else doc().querySelectorAll('.over, .zone-over, .is-dragged').forEach(n => n.classList.remove('over', 'zone-over', 'is-dragged'))
+  }
+  async function dropOn(zone, id) {
+    const d = current.desks.find(x => x.id === id)
+    if (!d || !zone) return
+    if (zone === 'pinned') {
+      if (!d.pinned) await queue({ action: 'pin', sessionId: id })
+      return
+    }
+    const groupId = zone === 'nogroup' ? null : zone.slice('group:'.length)
+    const sameGroup = groupId === null ? !d.group : (current.groups ?? []).find(g => g.id === groupId)?.name === d.group
+    if (!sameGroup) await queue({ action: 'move', sessionId: id, groupId })
+    // Arrastrar una fijada a un grupo la desfija (como la barra lateral); a «Sin grupo» también.
+    else if (d.pinned) await queue({ action: 'unpin', sessionId: id })
+  }
+  {
+    const app = document.getElementById('app')
+    const target = ev => ev.target.closest?.('[data-drop], .card[data-zone]')
+    const zoneOf = t => t?.dataset.drop ?? t?.dataset.zone ?? ''
+    app.addEventListener('dragstart', ev => {
+      const card = ev.target.closest?.('.card[draggable="true"]')
+      if (!card) return
+      dragId = card.dataset.id
+      ev.dataTransfer.effectAllowed = 'move'
+      ev.dataTransfer.setData('text/plain', dragId)
+      card.classList.add('is-dragged')
+      doc().documentElement.classList.add('dragging')
+      menuFor = null
+      const d = current.desks.find(x => x.id === dragId)
+      if (d) showDropbar(d)
+    })
+    app.addEventListener('dragover', ev => {
+      if (!dragId) return
+      const t = target(ev)
+      const zone = zoneOf(t)
+      if (!t || !zone || t.classList.contains('off')) return
+      ev.preventDefault()
+      ev.dataTransfer.dropEffect = 'move'
+      doc().querySelectorAll('.over, .zone-over').forEach(n => n !== t && n.classList.remove('over', 'zone-over'))
+      t.classList.add(t.classList.contains('card') ? 'zone-over' : 'over')
+    })
+    app.addEventListener('dragleave', ev => {
+      const t = target(ev)
+      if (t && !t.contains(ev.relatedTarget)) t.classList.remove('over', 'zone-over')
+    })
+    app.addEventListener('drop', ev => {
+      const t = target(ev)
+      const zone = zoneOf(t)
+      const id = dragId
+      ev.preventDefault()
+      endDrag()
+      if (id && zone) void dropOn(zone, id)
+    })
+    app.addEventListener('dragend', () => { if (dragId) endDrag() })
+  }
+
   // ---------- menú ⋯ de cada tarjeta ----------
   let menuFor = null
   function menuHtml(d) {
@@ -424,6 +524,10 @@
       `<button class="mi${danger ? ' danger' : ''}${sub ? ' sub' : ''}" type="button" role="menuitem" data-mi="${mi}"${extra}${enabled ? '' : ' disabled'}>${esc(label)}</button>`
     const groups = current.groups ?? []
     const out = [`<div class="dropdown" role="menu" data-stop>`]
+    out.push(item('stop', T('stop'), { enabled: d.isRunning }))
+    out.push(item('archive', T('archive'), { enabled: !d.isRunning }))
+    out.push(item('delete', T('delete'), { enabled: !d.isRunning, danger: true }))
+    out.push('<div class="msep"></div>')
     if (d.link) out.push(item('open', T('open')))
     out.push(item(d.pinned ? 'unpin' : 'pin', T(d.pinned ? 'unpin' : 'pin')))
     out.push(item('rename', T('rename')))
@@ -433,10 +537,6 @@
       for (const g of groups) out.push(item('move', g.name, { sub: true, enabled: g.name !== d.group, extra: ` data-group="${esc(g.id)}"` }))
       out.push(item('move', T('noGroup'), { sub: true, enabled: Boolean(d.group), extra: ' data-group=""' }))
     }
-    out.push('<div class="msep"></div>')
-    out.push(item('stop', T('stop'), { enabled: d.isRunning }))
-    out.push(item('archive', T('archive'), { enabled: !d.isRunning }))
-    out.push(item('delete', T('delete'), { enabled: !d.isRunning, danger: true }))
     out.push('</div>')
     return out.join('')
   }
@@ -539,6 +639,7 @@
   }
 
   function render() {
+    if (dragId) { renderLater = true; return }
     const all = current.desks
     const working = all.filter(d => d.isRunning).length
     el('count').innerHTML = !connected
@@ -582,15 +683,18 @@
     // Secciones: fijadas, luego cada grupo de la barra lateral, luego sin grupo.
     const sections = []
     const pinned = desks.filter(d => d.pinned)
-    if (pinned.length) sections.push([T('pinned'), pinned])
+    if (pinned.length) sections.push([T('pinned'), pinned, 'pinned'])
     const byGroup = new Map()
     for (const d of desks.filter(d => !d.pinned)) {
       const g = d.group || ''
       if (!byGroup.has(g)) byGroup.set(g, [])
       byGroup.get(g).push(d)
     }
-    for (const g of [...byGroup.keys()].filter(Boolean).sort((a, b) => a.localeCompare(b))) sections.push([g, byGroup.get(g)])
-    if (byGroup.has('')) sections.push([T('noGroup'), byGroup.get('')])
+    const groupId = name => (current.groups ?? []).find(g => g.name === name)?.id
+    for (const g of [...byGroup.keys()].filter(Boolean).sort((a, b) => a.localeCompare(b))) {
+      sections.push([g, byGroup.get(g), groupId(g) ? `group:${groupId(g)}` : ''])
+    }
+    if (byGroup.has('')) sections.push([T('noGroup'), byGroup.get(''), 'nogroup'])
     const showHeaders = sections.length > 1
 
     const grid = el('grid')
@@ -625,7 +729,9 @@
       </div>`
     }
     grid.innerHTML = sections
-      .map(([name, list]) => (showHeaders ? `<div class="section">${esc(name)}</div>` : '') + list.map(cardHtml).join(''))
+      .map(([name, list, zone]) =>
+        (showHeaders ? `<div class="section"${zone ? ` data-drop="${esc(zone)}"` : ''}>${esc(name)}</div>` : '') +
+        list.map(d => cardHtml(d).replace('<div class="card ', `<div data-zone="${esc(zone)}" draggable="true" class="card `)).join(''))
       .join('')
 
     // El menú abierto se abre hacia arriba si no cabe debajo (en la ventana flotante, que
