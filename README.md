@@ -9,7 +9,7 @@ Una oficina pixel con todas tus sesiones de Claude Code. Cada sesión es un pers
 - **Un clic para ir a la sesión** en la app de Claude.
 - **Como una barra lateral**: marca la sesión que tienes abierta, pone «Nuevo» en las que han terminado desde la última vez que las viste, y agrupa por tus grupos de la barra lateral con las fijadas arriba. Con muchas sesiones aparece un buscador.
 - **Qué está haciendo cada una**: «Editando archivos…», «Ejecutando comandos…» mientras trabaja, o la primera frase de su último mensaje cuando para.
-- **Todo lo de la barra lateral en el menú ⋯** de cada tarjeta: abrir, fijar, renombrar, mover a otro grupo, marcar como no leída, detener, archivar y eliminar (estas tres con confirmación; eliminar pide además tu aprobación en la app).
+- **Todo lo de la barra lateral en el menú ⋯** de cada tarjeta: abrir, fijar, renombrar, mover a otro grupo, marcar como no leída, detener, archivar y eliminar (detener y eliminar con confirmación; eliminar pide además tu aprobación en la app).
 - **Arrastra una tarjeta** a otro grupo, a Fijadas o a Sin grupo: aparece una barra para soltarla, y también vale soltarla sobre una sección o sobre otra tarjeta.
 - **＋ Nuevo chat** en la cabecera.
 - **Departamentos**: filtra por proyecto; cada uno tiene su propia decoración (suelo y alfombra), que puedes cambiar con 🎨.

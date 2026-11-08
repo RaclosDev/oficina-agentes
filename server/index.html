@@ -551,7 +551,9 @@
 
   async function menuAction(mi, d, target, card) {
     if (mi === 'open') { if (d.link) { markRead(d); void openSession(d.link, card.ownerDocument) } return render() }
-    if (mi === 'stop' || mi === 'archive' || mi === 'delete') { confirming = { id: d.id, action: mi }; return render() }
+    // Archivar se deshace desde la app; detener y eliminar piden confirmación.
+    if (mi === 'archive') return runAction('archive', d)
+    if (mi === 'stop' || mi === 'delete') { confirming = { id: d.id, action: mi }; return render() }
     if (mi === 'rename') {
       render()
       const win = card.ownerDocument.defaultView ?? window
