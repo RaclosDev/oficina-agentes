@@ -45,9 +45,10 @@
     font: inherit; font-size: 12px; color: var(--dim);
     background: transparent; border: 1px solid var(--line); border-radius: 999px;
     padding: 3px 10px; cursor: pointer;
+    max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .chip[aria-pressed='true'] { color: var(--bg); background: var(--accent); border-color: var(--accent); }
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(190px, 100%), 1fr)); gap: 12px; }
   .card {
     position: relative;
     display: flex; flex-direction: column;
@@ -98,17 +99,18 @@
     color: var(--ink); background: rgba(28, 29, 38, 0.82); border-radius: 999px;
   }
   .working .pill { color: var(--work); }
+  /* Posición fija calculada en placeMenu(): se ajusta a los bordes de la ventana y solo
+     tiene scroll si es más alto que la propia ventana. */
   .dropdown {
-    position: absolute; top: 30px; inset-inline-end: 4px; z-index: 30; min-width: 200px;
-    max-height: 70vh; overflow-y: auto;
+    position: fixed; top: 0; left: 0; z-index: 30; min-width: 200px;
+    max-width: calc(100vw - 8px); max-height: calc(100vh - 8px); overflow-y: auto; overscroll-behavior: contain;
     display: grid; padding: 4px; gap: 1px;
     background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
     box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
   }
   /* La tarjeta con el menú abierto va por delante de las demás (al pasar el ratón, otra
      tarjeta crea su propia capa y lo tapaba). */
-  .card.menu-open { z-index: 40; transform: none; }
-  .dropdown.up { top: auto; bottom: 30px; }
+  .card.menu-open { z-index: 40; transform: none; transition: none; }
   /* Arrastrar una tarjeta a otro grupo */
   .dropbar {
     position: sticky; top: 0; z-index: 50; display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
@@ -160,8 +162,8 @@
   .chip.deco { border-style: dashed; }
   body { transition: background 0.3s ease; }
   .confirm {
-    position: absolute; inset: 0;
-    background: rgba(28, 29, 38, 0.94);
+    position: absolute; inset: 0; z-index: 3; border-radius: inherit;
+    background: var(--bg);
     display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 10px;
     padding: 12px; text-align: center;
   }
@@ -202,7 +204,7 @@
   .compact .pill { font-size: 9px; padding: 1px 5px; gap: 3px; bottom: 3px; inset-inline-start: 3px; }
   .compact .pill .dot { width: 6px; height: 6px; }
   .compact .more { top: 4px; inset-inline-end: 4px; font-size: 11px; padding: 2px 6px; }
-  .compact .info { padding: 4px 8px; }
+  .compact .info { padding: 4px 30px 4px 8px; padding-inline: 8px 30px; }
   .compact .actions { margin-top: 3px; }
   .compact .act span { display: none; }
   .compact .confirm { flex-direction: row; justify-content: space-between; padding: 6px 8px; font-size: 12px; text-align: start; }
@@ -553,7 +555,8 @@
     if (mi === 'open') { if (d.link) { markRead(d); void openSession(d.link, card.ownerDocument) } return render() }
     // Archivar se deshace desde la app; detener y eliminar piden confirmación.
     if (mi === 'archive') return runAction('archive', d)
-    if (mi === 'stop' || mi === 'delete') { confirming = { id: d.id, action: mi }; return render() }
+    // El foco va a ✕ (la opción segura): un Enter de más no elimina nada.
+    if (mi === 'stop' || mi === 'delete') { confirming = { id: d.id, action: mi }; render(); return focusIn(d.id, '[data-no]') }
     if (mi === 'rename') {
       render()
       const win = card.ownerDocument.defaultView ?? window
@@ -571,11 +574,83 @@
     render()
   }
 
-  // Un clic fuera o Escape cierra el menú (también en la ventana flotante).
-  {
-    const app = document.getElementById('app')
-    app.addEventListener('click', () => { if (menuFor) { menuFor = null; render() } })
-    app.addEventListener('keydown', ev => { if (ev.key === 'Escape' && menuFor) { menuFor = null; render() } })
+  // Lleva el foco a un control de una tarjeta (tras repintar, la cuadrícula es nueva).
+  // sel '' = la propia tarjeta; si el control ya no está, al botón ⋯.
+  function focusIn(id, sel) {
+    const card = [...(el('grid')?.querySelectorAll('.card') ?? [])].find(c => c.dataset.id === id)
+    if (!card) return
+    const t = sel === '' ? card : card.querySelector(sel) ?? card.querySelector('[data-menu]')
+    t?.focus({ preventScroll: true })
+  }
+  function focusSel(n) {
+    if (n.classList.contains('card')) return ''
+    if (n.dataset.mi) return `[data-mi="${n.dataset.mi}"]` + (n.dataset.group !== undefined ? `[data-group="${CSS.escape(n.dataset.group)}"]` : '')
+    if ('menu' in n.dataset) return '[data-menu]'
+    if (n.dataset.yes) return '[data-yes]'
+    if ('no' in n.dataset) return '[data-no]'
+    return '[data-menu]'
+  }
+  function closeMenu(refocus) {
+    const id = menuFor
+    if (!id) return
+    menuFor = null
+    render()
+    if (refocus) focusIn(id, '[data-menu]')
+  }
+
+  // Coloca el menú abierto junto a su botón ⋯ sin salirse nunca de la ventana: debajo si
+  // cabe, si no encima, y si no cabe en ninguno de los dos lados, pegado al borde que haga
+  // falta. En horizontal se alinea con el botón y se desplaza lo justo para no cortarse.
+  function placeMenu() {
+    const dd = el('grid')?.querySelector('.dropdown')
+    const btn = dd?.closest('.card')?.querySelector('[data-menu]')
+    if (!dd || !btn) return
+    const root = dd.ownerDocument.documentElement
+    const M = 4, GAP = 4
+    const vw = root.clientWidth, vh = root.clientHeight
+    dd.style.maxWidth = `${vw - 2 * M}px`
+    dd.style.maxHeight = `${vh - 2 * M}px`
+    const b = btn.getBoundingClientRect()
+    const w = dd.offsetWidth, h = dd.offsetHeight
+    const want = root.dir === 'rtl' ? b.left : b.right - w
+    const left = Math.max(M, Math.min(want, vw - M - w))
+    let top
+    if (b.bottom + GAP + h <= vh - M) top = b.bottom + GAP
+    else if (b.top - GAP - h >= M) top = b.top - GAP - h
+    else top = Math.max(M, Math.min(b.bottom + GAP, vh - M - h))
+    dd.style.left = `${Math.round(left)}px`
+    dd.style.top = `${Math.round(top)}px`
+  }
+
+  // Escape, clic fuera, flechas y recolocar el menú: en la página y en la ventana flotante.
+  function watchDoc(d) {
+    if (d.oficinaWatched) return
+    d.oficinaWatched = true
+    d.addEventListener('click', ev => {
+      const t = ev.target
+      // Menú ⚙: se cierra con cualquier clic fuera de él (también sobre una tarjeta).
+      const gear = d.getElementById('gear'), menu = d.getElementById('menu')
+      if (menu && !menu.hidden && !t.closest?.('#menu, #gear')) { menu.hidden = true; gear?.setAttribute('aria-expanded', 'false') }
+      if (!menuFor || t.closest?.('.dropdown, [data-menu]')) return
+      // Un clic fuera del menú ⋯ solo lo cierra: si cae en otra tarjeta, no la abre.
+      if (t.closest?.('.card')) { ev.preventDefault(); ev.stopPropagation() }
+      closeMenu(false)
+    }, true)
+    d.addEventListener('keydown', ev => {
+      if (ev.key === 'Escape') {
+        if (menuFor) { ev.preventDefault(); closeMenu(true) }
+        else if (confirming) { const id = confirming.id; confirming = null; render(); focusIn(id, '[data-menu]') }
+        return
+      }
+      const dd = menuFor && ev.target.closest?.('.dropdown')
+      if (!dd) return
+      const items = [...dd.querySelectorAll('.mi:not(:disabled)')]
+      const i = items.indexOf(ev.target)
+      const next = { ArrowDown: items[(i + 1) % items.length], ArrowUp: items[(i - 1 + items.length) % items.length], Home: items[0], End: items.at(-1) }[ev.key]
+      if (next) { ev.preventDefault(); next.focus() }
+    })
+    d.addEventListener('scroll', placeMenu, true)
+    d.defaultView?.addEventListener('resize', placeMenu)
   }
 
   async function runAction(action, d) {
@@ -655,7 +730,7 @@
     if (filter && !projects.includes(filter)) filter = ''
     el('chips').innerHTML = projects.length > 1
       ? [['', T('all')], ...projects.map(p => [p, p])].map(([v, label]) =>
-          `<button class="chip" type="button" data-f="${esc(v)}" aria-pressed="${filter === v}">${esc(label)}</button>`).join('')
+          `<button class="chip" type="button" data-f="${esc(v)}" aria-pressed="${filter === v}" title="${esc(label)}">${esc(label)}</button>`).join('')
       : ''
     if (filter) {
       el('chips').insertAdjacentHTML('beforeend',
@@ -715,12 +790,12 @@
           <div class="row"><button class="tool yes" type="button" data-yes="${conf}">${esc(T(conf))}</button><button class="tool" type="button" data-no aria-label="✕">✕</button></div>
         </div>` : ''
       return `<div class="card ${menuOpen ? 'menu-open' : ''} ${d.isRunning ? 'working' : ''} ${d.link ? '' : 'nolink'} ${d.onScreen ? 'onscreen' : ''} ${d.focused ? 'focused' : ''}" data-id="${esc(d.id)}"
-          ${d.link ? 'role="button" tabindex="0"' : ''} title="${esc(d.title)}">
-        <div class="pic">
+          ${d.link ? 'role="button" tabindex="0"' : ''}>
+        <div class="pic" title="${esc(d.title)}">
           ${desk(d)}
           <span class="pill"><span class="dot"></span>${esc(stateText)}</span>
         </div>
-        <div class="info">
+        <div class="info" title="${esc(d.title)}">
           <div class="title">${d.focused || d.onScreen ? `<span class="badge">${esc(T('onScreen'))}</span>` : ''}${isUnread(d) ? `<span class="badge new">${esc(T('unread'))}</span>` : ''}${esc(title)}</div>
           <div class="meta">${esc(d.project)}${d.pr ? ` · PR ${esc(d.pr)}` : ''}${d.group ? ` · ${esc(d.group)}` : ''}</div>
           ${doingHtml(d)}
@@ -730,20 +805,19 @@
         ${confirmBox}
       </div>`
     }
+    // Repintar cambia todos los nodos: se recuerda dónde estaba el foco para devolverlo
+    // (si no, cada refresco lo tiraba al <body> y Escape ya no cerraba el menú).
+    const ae = doc().activeElement
+    const keepCard = ae && grid.contains(ae) ? ae.closest('.card') : null
+    const keep = keepCard ? { id: keepCard.dataset.id, sel: focusSel(ae) } : null
     grid.innerHTML = sections
       .map(([name, list, zone]) =>
         (showHeaders ? `<div class="section"${zone ? ` data-drop="${esc(zone)}"` : ''}>${esc(name)}</div>` : '') +
         list.map(d => cardHtml(d).replace('<div class="card ', `<div data-zone="${esc(zone)}" draggable="true" class="card `)).join(''))
       .join('')
 
-    // El menú abierto se abre hacia arriba si no cabe debajo (en la ventana flotante, que
-    // mide justo lo que ocupan las tarjetas).
-    const dd = grid.querySelector('.dropdown')
-    if (dd) {
-      const view = dd.ownerDocument.defaultView ?? window
-      const r = dd.getBoundingClientRect()
-      if (r.bottom > view.innerHeight - 4 && r.height < r.top - 34) dd.classList.add('up')
-    }
+    placeMenu()
+    if (keep) focusIn(keep.id, keep.sel)
 
     grid.querySelectorAll('.card').forEach(card => {
       const d = desks.find(x => x.id === card.dataset.id)
@@ -754,11 +828,17 @@
         if (!t) return open()
         ev.stopPropagation()
         if (t.disabled) return
-        if ('menu' in t.dataset) { menuFor = menuFor === d.id ? null : d.id; confirming = null; render(); return }
+        if ('menu' in t.dataset) {
+          menuFor = menuFor === d.id ? null : d.id
+          confirming = null
+          render()
+          // Como un menú de verdad: al abrirlo el foco va a la primera opción.
+          return focusIn(d.id, menuFor ? '.mi:not(:disabled)' : '[data-menu]')
+        }
         if (t.dataset.mi) { menuFor = null; return void menuAction(t.dataset.mi, d, t, card) }
-        if (t.dataset.act) { confirming = { id: d.id, action: t.dataset.act }; render() }
+        if (t.dataset.act) { confirming = { id: d.id, action: t.dataset.act }; render(); focusIn(d.id, '[data-no]') }
         else if (t.dataset.yes) void runAction(t.dataset.yes, d)
-        else if ('no' in t.dataset) { confirming = null; render() }
+        else if ('no' in t.dataset) { confirming = null; render(); focusIn(d.id, '[data-menu]') }
       })
       card.addEventListener('keydown', ev => {
         if (ev.target === card && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); open() }
@@ -828,9 +908,10 @@
       const setOpen = open => { menu.hidden = !open; gear.setAttribute('aria-expanded', String(open)) }
       gear.addEventListener('click', ev => { ev.stopPropagation(); setOpen(menu.hidden) })
       menu.addEventListener('click', ev => ev.stopPropagation())
-      d.addEventListener('click', () => setOpen(false))
-      d.addEventListener('keydown', ev => { if (ev.key === 'Escape') setOpen(false) })
+      menu.addEventListener('keydown', ev => { if (ev.key === 'Escape') { setOpen(false); gear.focus() } })
+      gear.addEventListener('keydown', ev => { if (ev.key === 'Escape') setOpen(false) })
     }
+    watchDoc(d)
     const sel = d.getElementById('lang')
     if (sel && !sel.options.length) {
       sel.innerHTML = Object.entries(LANGS).map(([code, [name]]) => `<option value="${code}">${esc(name)}</option>`).join('')
@@ -870,6 +951,7 @@
     pipWin.document.head.append(style)
     pipWin.document.documentElement.classList.add('compact')
     pipWin.document.body.append(app)
+    watchDoc(pipWin.document)
     const away = document.createElement('p')
     away.className = 'empty'
     away.id = 'away'
