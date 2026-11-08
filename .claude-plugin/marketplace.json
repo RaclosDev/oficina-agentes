@@ -1,0 +1,12 @@
+{
+  "name": "oficina-agentes",
+  "owner": { "name": "RaclosDev", "url": "https://github.com/RaclosDev" },
+  "metadata": { "description": "Oficina de agentes: todas tus sesiones de Claude Code en una ventana flotante." },
+  "plugins": [
+    {
+      "name": "oficina-agentes",
+      "source": "./",
+      "description": "Una oficina pixel con todas tus sesiones de Claude Code, en una ventana flotante siempre encima."
+    }
+  ]
+}
