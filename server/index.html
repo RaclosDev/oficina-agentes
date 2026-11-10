@@ -140,6 +140,7 @@
   .mlabel { font-size: 10px; color: var(--dim); padding: 6px 8px 2px; text-transform: uppercase; letter-spacing: 0.06em; }
   .msep { height: 1px; background: var(--line); margin: 3px 2px; }
   .newchat span { margin-inline-start: 4px; }
+  .newchat[hidden] { display: none; }
   .compact .newchat span { display: none; }
   .info { padding: 8px 10px 10px; display: grid; gap: 2px; min-width: 0; }
   .title { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -718,6 +719,13 @@
   function render() {
     if (dragId) { renderLater = true; return }
     const all = current.desks
+    const newChat = el('newchat')
+    if (newChat) {
+      const label = T('newChat') + (all.some(d => d.provider === 'codex') ? ' · Claude' : '')
+      newChat.hidden = current.hasClaude === false
+      newChat.title = label
+      newChat.querySelector('span').textContent = label
+    }
     const working = all.filter(d => d.isRunning).length
     el('count').innerHTML = !connected
       ? esc(T('connecting'))
@@ -776,11 +784,12 @@
 
     const grid = el('grid')
     if (!desks.length) {
-      grid.innerHTML = `<div class="empty">${esc(T('waiting'))}</div>`
+      grid.innerHTML = current.hasClaude === false ? '' : `<div class="empty">${esc(T('waiting'))}</div>`
       return
     }
-    const cardHtml = d => {
+    const cardHtml = (d, zone) => {
       const title = d.title
+      const managed = d.provider !== 'codex'
       const conf = confirming && confirming.id === d.id ? confirming.action : null
       // Estado encima de la foto: «Trabajando» o cuánto lleva en pausa.
       const stateText = d.isRunning ? T('stWorking') : d.lastActivityAt ? ago(d.lastActivityAt, true) : T('stPaused')
@@ -790,6 +799,7 @@
           <div class="row"><button class="tool yes" type="button" data-yes="${conf}">${esc(T(conf))}</button><button class="tool" type="button" data-no aria-label="✕">✕</button></div>
         </div>` : ''
       return `<div class="card ${menuOpen ? 'menu-open' : ''} ${d.isRunning ? 'working' : ''} ${d.link ? '' : 'nolink'} ${d.onScreen ? 'onscreen' : ''} ${d.focused ? 'focused' : ''}" data-id="${esc(d.id)}"
+          ${managed ? `data-zone="${esc(zone)}" draggable="true"` : ''}
           ${d.link ? 'role="button" tabindex="0"' : ''}>
         <div class="pic" title="${esc(d.title)}">
           ${desk(d)}
@@ -800,7 +810,7 @@
           <div class="meta">${esc(d.project)}${d.pr ? ` · PR ${esc(d.pr)}` : ''}${d.group ? ` · ${esc(d.group)}` : ''}</div>
           ${doingHtml(d)}
         </div>
-        <button class="more" type="button" data-menu aria-haspopup="true" aria-expanded="${menuOpen}" title="${esc(T('more'))}" aria-label="${esc(T('more'))}">⋯</button>
+        ${managed ? `<button class="more" type="button" data-menu aria-haspopup="true" aria-expanded="${menuOpen}" title="${esc(T('more'))}" aria-label="${esc(T('more'))}">⋯</button>` : ''}
         ${menuOpen ? menuHtml(d) : ''}
         ${confirmBox}
       </div>`
@@ -813,7 +823,7 @@
     grid.innerHTML = sections
       .map(([name, list, zone]) =>
         (showHeaders ? `<div class="section"${zone ? ` data-drop="${esc(zone)}"` : ''}>${esc(name)}</div>` : '') +
-        list.map(d => cardHtml(d).replace('<div class="card ', `<div data-zone="${esc(zone)}" draggable="true" class="card `)).join(''))
+        list.map(d => cardHtml(d, zone)).join(''))
       .join('')
 
     placeMenu()

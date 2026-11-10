@@ -6,6 +6,7 @@ import { readFile, stat } from 'node:fs/promises'
 import { watch } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
+import { applyCodexEvent, codexLink, isCodexEvent, isCodexId } from '../codex/session.mjs'
 
 const HOST = '127.0.0.1'
 const PORT = Number(process.env.OFICINA_PORT ?? 3210)
@@ -18,8 +19,19 @@ const GROUP_ID = /^[\w-]{1,80}$/
 const NEW_CHAT = 'claude://claude.ai/epitaxy/new'
 let actions = []
 
-let snapshot ={ desks: [], updatedAt: 0 }
+let claude = { desks: [], groups: [], available: false }
+const codex = new Map()
+let updatedAt = 0
 const clients = new Set()
+
+function snapshot() {
+  return {
+    desks: [...claude.desks, ...Array.from(codex.values(), session => session.desk)],
+    groups: claude.groups,
+    hasClaude: claude.available,
+    updatedAt,
+  }
+}
 
 function send(res, status, body, type = 'application/json; charset=utf-8') {
   res.writeHead(status, { 'content-type': type, 'cache-control': 'no-store' })
@@ -49,7 +61,8 @@ try {
 }
 
 function broadcast() {
-  const data = `data: ${JSON.stringify(snapshot)}\n\n`
+  updatedAt = Date.now()
+  const data = `data: ${JSON.stringify(snapshot())}\n\n`
   for (const res of clients) res.write(data)
 }
 
@@ -62,11 +75,11 @@ const server = createServer(async (req, res) => {
   }
 
   if (req.method === 'GET' && url.pathname === '/api/health') {
-    return send(res, 200, JSON.stringify({ ok: true, updatedAt: snapshot.updatedAt }))
+    return send(res, 200, JSON.stringify({ ok: true, updatedAt }))
   }
 
   if (req.method === 'GET' && url.pathname === '/api/sessions') {
-    return send(res, 200, JSON.stringify(snapshot))
+    return send(res, 200, JSON.stringify(snapshot()))
   }
 
   if (req.method === 'GET' && url.pathname === '/api/events') {
@@ -76,7 +89,7 @@ const server = createServer(async (req, res) => {
       connection: 'keep-alive',
     })
     res.write(`event: version\ndata: ${await pageVersion()}\n\n`)
-    res.write(`data: ${JSON.stringify(snapshot)}\n\n`)
+    res.write(`data: ${JSON.stringify(snapshot())}\n\n`)
     clients.add(res)
     const ping = setInterval(() => res.write(': ping\n\n'), 25_000)
     req.on('close', () => {
@@ -100,7 +113,7 @@ const server = createServer(async (req, res) => {
       if (!Array.isArray(parsed.desks)) throw new Error('desks')
       // Varias sesiones envían por turnos y ninguna sabe su propia actividad: se conserva
       // la última conocida de cada sesión para que no aparezca y desaparezca.
-      const before = new Map(snapshot.desks.map(d => [d.id, d]))
+      const before = new Map(claude.desks.map(d => [d.id, d]))
       // Lo mismo con lo que las sesiones con una versión antigua del mod aún no envían.
       const desks = parsed.desks.map(d => {
         const prev = before.get(d.id)
@@ -110,13 +123,31 @@ const server = createServer(async (req, res) => {
         for (const k of ['onScreen', 'focused', 'pinned']) if (out[k] === undefined && prev[k] !== undefined) out[k] = prev[k]
         return out
       })
-      const groups = Array.isArray(parsed.groups) ? parsed.groups : snapshot.groups ?? []
-      snapshot = { desks, groups, updatedAt: Date.now() }
+      const groups = Array.isArray(parsed.groups) ? parsed.groups : claude.groups
+      claude = { desks, groups, available: true }
       broadcast()
       return send(res, 204, '')
     } catch {
       return send(res, 400, '{"error":"bad json"}')
     }
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/codex/event') {
+    if (req.headers['x-oficina'] !== '1') return send(res, 403, '{"error":"forbidden"}')
+    let body = ''
+    for await (const chunk of req) {
+      body += chunk
+      if (body.length > 2_000) return send(res, 413, '{"error":"too large"}')
+    }
+    let event
+    try {
+      event = JSON.parse(body)
+    } catch {
+      return send(res, 400, '{"error":"bad json"}')
+    }
+    if (!isCodexEvent(event)) return send(res, 400, '{"error":"bad event"}')
+    if (applyCodexEvent(codex, event)) broadcast()
+    return send(res, 204, '')
   }
 
   // Acciones sobre sesiones (archivar, detener): la página las encola y el mod,
@@ -243,7 +274,7 @@ const server = createServer(async (req, res) => {
     return
   }
 
-  // Abre una sesión en la app de Claude. Solo enlaces de sesión locales.
+  // Solo enlaces locales de sesión o el acceso fijo al nuevo chat de Claude.
   if (req.method === 'POST' && url.pathname === '/api/open') {
     if (req.headers['x-oficina'] !== '1') return send(res, 403, '{"error":"forbidden"}')
     let body = ''
@@ -257,7 +288,11 @@ const server = createServer(async (req, res) => {
     } catch {
       return send(res, 400, '{"error":"bad json"}')
     }
-    if (!SESSION_LINK.test(link) && link !== NEW_CHAT) return send(res, 400, '{"error":"not a session link"}')
+    const codexId = link.slice('codex://threads/'.length)
+    const isCodexLink = isCodexId(codexId) && link === codexLink(codexId)
+    if (!SESSION_LINK.test(link) && !isCodexLink && link !== NEW_CHAT) {
+      return send(res, 400, '{"error":"not a session link"}')
+    }
     const [cmd, args] =
       process.platform === 'win32'
         ? ['rundll32.exe', ['url.dll,FileProtocolHandler', link]]
@@ -281,4 +316,4 @@ server.on('error', err => {
   throw err
 })
 
-server.listen(PORT, HOST, () => console.log(`[oficina] http://${HOST}:${PORT}`))
+server.listen(PORT, HOST, () => console.log(`[oficina] http://${HOST}:${server.address().port}`))

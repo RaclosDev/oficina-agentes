@@ -1,0 +1,74 @@
+import assert from 'node:assert/strict'
+import { spawn } from 'node:child_process'
+import { once } from 'node:events'
+import { fileURLToPath } from 'node:url'
+import { test } from 'node:test'
+
+const id = '11111111-1111-1111-1111-111111111111'
+const turnId = '22222222-2222-2222-2222-222222222222'
+const claudeDesk = { id: `local_${id}`, title: 'Chat de Claude', isRunning: false }
+
+test('los hooks de Codex y las listas de Claude comparten la oficina', { timeout: 10_000 }, async t => {
+  const script = fileURLToPath(new URL('./server.mjs', import.meta.url))
+  const server = spawn(process.execPath, [script], {
+    env: { ...process.env, OFICINA_PORT: '0' },
+  })
+  t.after(() => server.kill())
+  const [startup] = await once(server.stdout, 'data')
+  const office = String(startup).trim().replace('[oficina] ', '')
+  const env = { ...process.env, OFICINA_PORT: new URL(office).port }
+
+  async function post(path, body, trusted = true) {
+    return fetch(office + path, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', ...(trusted ? { 'x-oficina': '1' } : {}) },
+      body: JSON.stringify(body),
+    })
+  }
+
+  async function hook(name, turn = turnId) {
+    const hookScript = fileURLToPath(new URL('../codex/report.mjs', import.meta.url))
+    const child = spawn(process.execPath, [hookScript], { env })
+    child.stdin.end(JSON.stringify({
+      hook_event_name: name,
+      session_id: id,
+      turn_id: turn,
+      cwd: 'C:\\code\\mi proyecto',
+      prompt: 'Contenido que no debe llegar a la oficina',
+    }))
+    const [code] = await once(child, 'close')
+    assert.equal(code, 0)
+  }
+
+  const snapshot = () => fetch(office + '/api/sessions').then(res => res.json())
+  await hook('SessionStart')
+  let state = await snapshot()
+  assert.equal(state.hasClaude, false)
+  assert.equal(state.desks[0].project, 'mi proyecto')
+  assert.equal(state.desks[0].isRunning, false)
+
+  assert.equal((await post('/api/sessions', { desks: [claudeDesk] })).status, 204)
+  await hook('UserPromptSubmit')
+  await hook('Stop', id)
+  await hook('SessionStart')
+  state = await snapshot()
+  assert.equal(state.hasClaude, true)
+  assert.deepEqual(state.desks[0], claudeDesk)
+  assert.equal(state.desks[1].provider, 'codex')
+  assert.equal(state.desks[1].isRunning, true)
+  assert.equal(state.desks[1].link, `codex://threads/${id}`)
+  assert.doesNotMatch(JSON.stringify(state), /Contenido que no debe llegar/)
+
+  await hook('Stop')
+  assert.equal((await snapshot()).desks[1].isRunning, false)
+  await hook('UserPromptSubmit')
+  await hook('Interrupt')
+  assert.equal((await snapshot()).desks[1].isRunning, false)
+  await hook('SessionEnd')
+  assert.deepEqual((await snapshot()).desks, [claudeDesk])
+
+  assert.equal((await post('/api/codex/event', { name: 'SessionStart', id, project: '' }, false)).status, 403)
+  assert.equal((await post('/api/codex/event', { name: 'SessionStart', id: 'bad', project: '' })).status, 400)
+  assert.equal((await post('/api/action', { action: 'stop', sessionId: id })).status, 400)
+  assert.equal((await post('/api/open', { link: `codex://threads/${id}?other=1` })).status, 400)
+})
