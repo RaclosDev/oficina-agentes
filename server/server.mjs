@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { homedir } from 'node:os'
 import { applyCodexEvent, codexLink, isCodexEvent, isCodexId } from '../codex/session.mjs'
+import { windowCommand } from './window.mjs'
 import { listCodexDesks, manageCodexThread } from '../codex/threads.mjs'
 
 const HOST = '127.0.0.1'
@@ -322,15 +323,8 @@ const server = createServer(async (req, res) => {
   if (req.method === 'POST' && url.pathname === '/api/pin') {
     if (req.headers['x-oficina'] !== '1') return send(res, 403, '{"error":"forbidden"}')
     if (process.platform !== 'win32') return send(res, 501, '{"error":"windows only"}')
-    const child = spawn(
-      'powershell.exe',
-      ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', join(here, 'pin.ps1'), '-Url', `http://${HOST}:${PORT}/?mini`],
-      { windowsHide: true },
-    )
-    let out = ''
-    child.stdout.on('data', d => (out += d))
-    child.on('error', () => send(res, 500, '{"error":"spawn"}'))
-    child.on('close', code => send(res, code === 0 && out.includes('ok') ? 204 : 500, code === 0 ? '' : '{"error":"pin"}'))
+    const ok = await windowCommand({ action: 'show', url: `http://${HOST}:${PORT}/?mini` })
+    send(res, ok ? 204 : 500, ok ? '' : '{"error":"pin"}')
     return
   }
 
@@ -350,14 +344,23 @@ const server = createServer(async (req, res) => {
       return send(res, 400, '{"error":"bad json"}')
     }
     if (!Number.isFinite(height) || height < 150 || height > 4000) return send(res, 400, '{"error":"bad height"}')
-    const child = spawn(
-      'powershell.exe',
-      ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', join(here, 'pin.ps1'), '-Height', String(height)],
-      { windowsHide: true },
-    )
-    child.on('error', () => send(res, 500, '{"error":"spawn"}'))
-    child.on('close', code => send(res, code === 0 ? 204 : 500, code === 0 ? '' : '{"error":"resize"}'))
+    const ok = await windowCommand({ action: 'resize', height })
+    send(res, ok ? 204 : 500, ok ? '' : '{"error":"resize"}')
     return
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/window') {
+    if (req.headers['x-oficina'] !== '1') return send(res, 403, '{"error":"forbidden"}')
+    let body = ''
+    for await (const chunk of req) {
+      body += chunk
+      if (body.length > 200) return send(res, 413, '{"error":"too large"}')
+    }
+    let action
+    try { action = JSON.parse(body).action } catch { return send(res, 400, '{"error":"bad json"}') }
+    if (!['close', 'drag', 'size'].includes(action)) return send(res, 400, '{"error":"bad action"}')
+    const ok = await windowCommand({ action })
+    return send(res, ok ? 204 : 500, ok ? '' : '{"error":"window"}')
   }
 
   // Solo enlaces locales de sesión o el acceso fijo al nuevo chat de Claude.

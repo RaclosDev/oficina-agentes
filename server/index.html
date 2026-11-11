@@ -4,11 +4,18 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Oficina</title>
+<script>
+  try {
+    const mode = localStorage.getItem('oficina.appearance') || 'system';
+    document.documentElement.dataset.appearance = mode === 'dark' || (mode !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+  } catch {}
+</script>
 <style id="oficina-style">
   :root {
     color-scheme: light;
     --bg: #f4f1eb;
     --panel: #fffdf9;
+    --hover: #fff9ef;
     --line: #ded7ca;
     --ink: #29251f;
     --dim: #665e52;
@@ -17,6 +24,13 @@
     --accent: #9b452d;
     --danger: #a22d25;
     --control: #8a7c69;
+  }
+  :root[data-appearance="dark"] {
+    color-scheme: dark;
+    --bg: #1c1b19; --panel: #272521; --hover: #302c26;
+    --line: #504a40; --ink: #f3ede3; --dim: #bbb1a3;
+    --work: #91d2ae; --rest: #b8a98f; --accent: #efb093;
+    --danger: #ffaaa1; --control: #8e8271;
   }
   * { box-sizing: border-box; }
   body {
@@ -76,7 +90,7 @@
     cursor: pointer;
     transition: border-color 0.12s ease, background 0.12s ease;
   }
-  .card:hover { border-color: var(--accent); background: #fff9ef; }
+  .card:hover { border-color: var(--accent); background: var(--hover); }
   .card.working { border-inline-start: 3px solid var(--work); padding-inline-start: 8px; }
   .card.nolink { cursor: default; }
   .card.onscreen { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
@@ -196,8 +210,11 @@
   .confirm .row { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
   .confirm .yes { border-color: var(--danger); color: var(--danger); }
   .empty { color: var(--dim); padding: 32px 12px; text-align: center; grid-column: 1 / -1; border: 1px dashed var(--control); border-radius: 12px; }
-  #toasts { position: fixed; bottom: 12px; inset-inline-start: 50%; transform: translateX(-50%); display: grid; gap: 6px; z-index: 5; width: min(90vw, 420px); }
-  [dir='rtl'] #toasts { transform: translateX(50%); }
+  .search-row { display: flex; align-items: center; gap: 8px; flex: 2 1 240px; min-width: 0; }
+  .search-row .search { flex: 1 1 120px; }
+  #toasts { flex: 0 1 50%; min-width: 0; overflow-wrap: anywhere; }
+  #toasts:empty { display: none; }
+
   .toast { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; font-size: 12px; }
   .toast.bad { border-color: var(--danger); }
   .toast { position: relative; }
@@ -218,6 +235,12 @@
   .compact header h1 { font-size: 1rem; margin-bottom: 2px; }
   .compact .count { font-size: 0.6875rem; gap: 6px; }
   .compact #pip { display: none; }
+  #close-window, #resize-window { display: none; }
+  .compact #close-window { display: inline-block; padding-inline: 9px; }
+  .compact #close-window:hover { color: var(--danger); border-color: var(--danger); }
+  .compact .heading { cursor: grab; user-select: none; }
+  .compact #resize-window { display: block; position: fixed; right: 0; bottom: 0; width: 20px; height: 20px; padding: 0; border: 0; background: transparent; color: var(--dim); cursor: nwse-resize; }
+  .compact #app { padding-bottom: 22px; }
   .fold { display: none; padding: 5px 8px; line-height: 1; }
   .compact .fold { display: inline-block; }
   .settings { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -262,7 +285,11 @@
       <button class="tool" id="pip" type="button" data-t="float" data-t-title="floatTip"></button>
       <button class="tool gear" id="gear" type="button" aria-haspopup="true" aria-expanded="false" data-t-title="settingsLabel">⚙</button>
       <button class="tool fold" id="fold" type="button" aria-expanded="true">▾</button>
+      <button class="tool" id="close-window" type="button" data-t-title="closeWindow">×</button>
       <div class="menu" id="menu" hidden>
+        <label class="field"><span data-t="appearance"></span><select class="tool" id="appearance" data-t-title="appearance">
+          <option value="system" data-t="systemAppearance"></option><option value="light" data-t="lightAppearance"></option><option value="dark" data-t="darkAppearance"></option>
+        </select></label>
         <label class="field"><span data-t="lang"></span><select class="tool" id="lang"></select></label>
         <label class="toggle"><input type="checkbox" id="notify" /> <span data-t="notify"></span></label>
       </div>
@@ -270,7 +297,10 @@
   </header>
   <div class="filters">
     <div class="filter-fields">
-      <input class="search" id="search" type="search" autocomplete="off" />
+      <div class="search-row">
+        <input class="search" id="search" type="search" autocomplete="off" />
+        <div id="toasts" role="status" aria-live="polite"></div>
+      </div>
       <select class="tool" id="provider" data-t-title="providerLabel">
         <option value="" data-t="allProviders"></option>
         <option value="codex">Codex</option>
@@ -292,8 +322,8 @@
   </div>
   <div class="dropbar" id="dropbar" hidden></div>
   <div class="grid" id="grid"></div>
-  <div id="toasts" role="status" aria-live="polite"></div>
 </div>
+<button id="resize-window" type="button" data-t-title="resizeWindow">◢</button>
 
 <script>
   // ---------- idiomas ----------
@@ -347,8 +377,8 @@
     ja: 'キャンセル', mr: 'रद्द करा', te: 'రద్దు చేయి', tr: 'İptal', ta: 'ரத்துசெய்',
     vi: 'Hủy', ko: '취소', it: 'Annulla',
   }
-  Object.assign(OFFICE_TEXT.es, { confirmInCodex: 'Confirma el borrado en Codex.', online: 'En línea', presenceLabel: 'Conexión de los agentes', colors: 'Color', projectColor: 'Color del proyecto', inheritColor: 'Usar color general', actionBusy: 'El chat sigue trabajando. Espera a que termine.', actionLocked: 'Codex mantiene este chat abierto. Ábrelo y usa su menú para archivar o eliminar.', actionUnavailable: 'No se pudo conectar con Codex. Vuelve a intentarlo.', actionMissing: 'El chat ya no está disponible. Actualiza la Oficina.' })
-  Object.assign(OFFICE_TEXT.en, { confirmInCodex: 'Confirm deletion in Codex.', online: 'Online', presenceLabel: 'Agent connection', colors: 'Color', projectColor: 'Project color', inheritColor: 'Use general color', actionBusy: 'The chat is still working. Wait for it to finish.', actionLocked: 'Codex is keeping this chat open. Open it and use its menu to archive or delete.', actionUnavailable: 'Could not connect to Codex. Try again.', actionMissing: 'This chat is no longer available. Refresh the office.' })
+  Object.assign(OFFICE_TEXT.es, { appearance: 'Apariencia', systemAppearance: 'Según el sistema', lightAppearance: 'Claro', darkAppearance: 'Oscuro', closeWindow: 'Cerrar Oficina', resizeWindow: 'Cambiar tamaño', pendingAction: 'Procesando…', online: 'En línea', presenceLabel: 'Conexión de los agentes', colors: 'Color', projectColor: 'Color del proyecto', inheritColor: 'Usar color general', actionBusy: 'El chat sigue trabajando. Espera a que termine.', actionLocked: 'Codex mantiene este chat abierto. Ábrelo y usa su menú para archivar o eliminar.', actionUnavailable: 'No se pudo conectar con Codex. Vuelve a intentarlo.', actionMissing: 'El chat ya no está disponible. Actualiza la Oficina.' })
+  Object.assign(OFFICE_TEXT.en, { appearance: 'Appearance', systemAppearance: 'System', lightAppearance: 'Light', darkAppearance: 'Dark', closeWindow: 'Close Office', resizeWindow: 'Resize window', pendingAction: 'Processing…', online: 'Online', presenceLabel: 'Agent connection', colors: 'Color', projectColor: 'Project color', inheritColor: 'Use general color', actionBusy: 'The chat is still working. Wait for it to finish.', actionLocked: 'Codex is keeping this chat open. Open it and use its menu to archive or delete.', actionUnavailable: 'Could not connect to Codex. Try again.', actionMissing: 'This chat is no longer available. Refresh the office.' })
   const THEME_NAMES = {
     es: ['Madera', 'Azul', 'Verde', 'Gris', 'Noche', 'Rosa', 'Arena', 'Menta'],
     en: ['Wood', 'Blue', 'Green', 'Grey', 'Night', 'Pink', 'Sand', 'Mint'],
@@ -478,8 +508,9 @@
     const t = doc().createElement('div')
     t.className = 'toast' + (bad ? ' bad' : '')
     t.textContent = text
-    box.append(t)
-    setTimeout(() => t.remove(), 5000)
+    box.replaceChildren(t)
+    fitWindow()
+    setTimeout(() => { t.remove(); fitWindow() }, 5000)
   }
 
   async function post(path, body) {
@@ -617,7 +648,8 @@
   async function menuAction(mi, d, target, card) {
     if (mi === 'open') { if (d.link) { markRead(d); void openSession(d.link, card.ownerDocument) } return render() }
     if (mi === 'archive') return runAction('archive', d, '[data-menu]')
-    if (mi === 'stop' || mi === 'delete') return confirmAction(d.id, mi, '[data-menu]')
+    if (mi === 'delete') return runAction('delete', d, '[data-menu]', true)
+    if (mi === 'stop') return confirmAction(d.id, mi, '[data-menu]')
     if (mi === 'rename') {
       render()
       const win = card.ownerDocument.defaultView ?? window
@@ -732,7 +764,6 @@
     confirming = null
     pendingActions.add(d.id)
     render()
-    if (d.provider === 'codex' && action === 'delete') toast(T('confirmInCodex'))
     try {
       const response = await fetch('/api/action', {
         method: 'POST',
@@ -744,7 +775,7 @@
         const key = detail.error === 'codex writer active' ? 'actionLocked'
           : { 409: 'actionBusy', 404: 'actionMissing', 502: 'actionUnavailable' }[response.status] ?? 'failed'
         toast(detail.message ? `${T('failed')} · ${detail.message}` : T(key), true)
-      } else if (d.provider === 'codex') toast(action === 'archive' ? T('archived', { t: titleOf(d) }) : T('done'))
+      }
     } catch {
       toast(T('failed'), true)
     } finally {
@@ -801,6 +832,10 @@
       d.documentElement.dir = RTL.has(lang) ? 'rtl' : 'ltr'
       d.querySelectorAll('[data-t]').forEach(n => { n.textContent = T(n.dataset.t) })
       d.querySelectorAll('[data-t-title]').forEach(n => { n.title = T(n.dataset.tTitle) })
+      for (const id of ['appearance', 'close-window', 'resize-window']) {
+        const control = d.getElementById(id)
+        control?.setAttribute('aria-label', T(control.dataset.tTitle))
+      }
       const sel = d.getElementById('lang')
       if (sel) sel.setAttribute('aria-label', T('lang'))
     }
@@ -901,7 +936,7 @@
       const managed = d.provider !== 'codex'
       const conf = confirming && confirming.id === d.id ? confirming.action : null
       const blocked = d.isRunning || pendingActions.has(d.id)
-      const stateText = d.isRunning ? T('stWorking') : T('stPaused')
+      const stateText = pendingActions.has(d.id) ? T('pendingAction') : d.isRunning ? T('stWorking') : T('stPaused')
       const activityAge = Number.isFinite(Date.parse(d.lastActivityAt)) ? ago(d.lastActivityAt, true) : ''
       const menuOpen = menuFor === d.id
       const confirmBox = conf ? `<div class="confirm" data-stop>
@@ -961,7 +996,7 @@
         if (t.dataset.mi) { menuFor = null; return void menuAction(t.dataset.mi, d, t, card) }
         if ('open' in t.dataset) return open()
         if (t.dataset.act === 'archive') return void runAction('archive', d, '[data-act="archive"]')
-        if (t.dataset.act === 'delete') return confirmAction(d.id, 'delete', '[data-act="delete"]')
+        if (t.dataset.act === 'delete') return void runAction('delete', d, '[data-act="delete"]', true)
         if (t.dataset.yes) return void runAction(t.dataset.yes, d, confirming.returnTo, true)
         if ('no' in t.dataset) cancelConfirmation()
       })
@@ -1015,7 +1050,45 @@
   }
 
   // ---------- controles ----------
+  function applyAppearance() {
+    const saved = store.get('appearance', 'system')
+    const mode = ['light', 'dark'].includes(saved) ? saved : 'system'
+    const dark = mode === 'dark' || (mode === 'system' && matchMedia('(prefers-color-scheme: dark)').matches)
+    for (const d of [document, pipWin?.document].filter(Boolean)) {
+      d.documentElement.dataset.appearance = dark ? 'dark' : 'light'
+      const select = d.getElementById('appearance')
+      if (select) select.value = mode
+    }
+  }
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyAppearance)
+  window.addEventListener('storage', ev => { if (ev.key === 'oficina.appearance') applyAppearance() })
+
   function setupControls(d) {
+    d.getElementById('appearance').onchange = ev => {
+      store.set('appearance', ev.target.value)
+      applyAppearance()
+    }
+    d.getElementById('close-window').onclick = async () => {
+      if (pipWin) return pipWin.close()
+      if (!IS_MINI) return
+      try { if (await post('/api/window', { action: 'close' })) return } catch {}
+      window.close()
+    }
+    d.querySelector('.heading').onpointerdown = ev => {
+      if (!IS_MINI || pipWin || ev.button !== 0) return
+      ev.preventDefault()
+      void post('/api/window', { action: 'drag' }).catch(() => {})
+    }
+    d.getElementById('resize-window').onpointerdown = ev => {
+      if (!IS_MINI || pipWin || ev.button !== 0) return
+      ev.preventDefault()
+      void post('/api/window', { action: 'size' }).catch(() => {})
+    }
+    d.getElementById('resize-window').onkeydown = ev => {
+      if (!IS_MINI || !['Enter', ' '].includes(ev.key)) return
+      ev.preventDefault()
+      void post('/api/window', { action: 'size' }).catch(() => {})
+    }
     const search = d.getElementById('search')
     const provider = d.getElementById('provider')
     const project = d.getElementById('project')
@@ -1090,6 +1163,7 @@
     style.textContent = document.getElementById('oficina-style').textContent
     pipWin.document.head.append(style)
     pipWin.document.documentElement.classList.add('compact')
+    applyAppearance()
     pipWin.document.body.append(app)
     watchDoc(pipWin.document)
     const away = document.createElement('p')
@@ -1166,6 +1240,7 @@
     document.documentElement.classList.add('compact')
   }
   setupControls(document)
+  applyAppearance()
   applyLang()
   if (IS_MINI) applyFold()
   render()
@@ -1190,6 +1265,7 @@
     const r = JSON.parse(ev.data)
     const d = current.desks.find(x => x.id === r.sessionId)
     const name = d ? d.title : r.sessionId
+    if ((r.ok || r.pending) && ['archive', 'delete'].includes(r.action)) return
     if (r.ok) return toast(r.action === 'archive' ? T('archived', { t: name }) : `${T('done')}: ${T(RESULT_KEY[r.action] ?? r.action)} · ${name}`)
     if (r.pending) return toast(`${name} · ${r.message}`)
     if (NEEDS_PERMISSION.test(r.message ?? '')) return permissionHint(r.action)

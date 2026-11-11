@@ -66,6 +66,9 @@ test('los hooks de Codex y las listas de Claude comparten la oficina', { timeout
   }
 
   const snapshot = () => fetch(office + '/api/sessions').then(res => res.json())
+  assert.equal((await post('/api/window', { action: 'close' }, false)).status, 403)
+  assert.equal((await post('/api/window', { action: 'invalid' })).status, 400)
+  assert.equal((await post('/api/window', { action: 'close', extra: 'x'.repeat(200) })).status, 413)
   await hook('SessionStart')
   let state = await snapshot()
   assert.equal(state.hasClaude, false)

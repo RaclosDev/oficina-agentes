@@ -8,12 +8,13 @@ Claude Code y Codex comparten la ventana flotante, los filtros por proyecto y lo
 
 - **Chats activos y recientes** con su título, aplicación, proyecto, PR y tiempo en pausa. Busca por texto, filtra por aplicación o proyecto y marca la casilla para incluir chats en pausa durante al menos 24 horas.
 - **Todos o En línea** para mostrar también los chats guardados o limitar la vista a los agentes con sesión abierta, en pantalla o trabajando.
-- **Ventana flotante siempre encima** (Windows): una ventana compacta que se ajusta al número de sesiones, se pliega con ▾ y crece al ensancharla. En otros sistemas usa el Picture-in-Picture del navegador.
+- **Ventana flotante siempre encima y sin bordes** (Windows): se arrastra desde el título, se cierra con × y se redimensiona desde la esquina inferior derecha. Se ajusta al número de sesiones y se pliega con ▾. Cerrar la ventana no detiene los chats. En otros sistemas usa el Picture-in-Picture del navegador.
+- **Modo claro, oscuro o según el sistema**, desde ⚙ → Apariencia. La elección se guarda y es independiente del color de los escritorios.
 - **Un clic para ir al chat** en Claude o Codex.
-- **Archiva o elimina chats en pausa** desde su tarjeta en Claude o Codex. Los botones aparecen al pasar el ratón o al entrar con el teclado y están siempre visibles en pantallas táctiles. El borrado definitivo pide confirmación.
+- **Archiva o elimina chats en pausa** desde su tarjeta en Claude o Codex. Los botones aparecen al pasar el ratón o al entrar con el teclado y están siempre visibles en pantallas táctiles. Sin confirmaciones ni avisos de éxito añadidos por la Oficina; el borrado mantiene la aprobación propia de la app. Los errores y otros avisos aparecen junto al buscador sin tapar las tarjetas.
 - **Como una barra lateral**: marca la sesión que tienes abierta, pone «Nuevo» en las que han terminado desde la última vez que las viste, y agrupa por tus grupos de la barra lateral con las fijadas arriba.
 - **Qué está haciendo cada una**: «Editando archivos…», «Ejecutando comandos…» mientras trabaja, o la primera frase de su último mensaje cuando para.
-- **Todo lo de la barra lateral en el menú ⋯** de cada tarjeta: abrir, fijar, renombrar, mover a otro grupo, marcar como no leída, detener, archivar y eliminar (detener y eliminar con confirmación; eliminar pide además tu aprobación en la app).
+- **Todo lo de la barra lateral en el menú ⋯** de cada tarjeta: abrir, fijar, renombrar, mover a otro grupo, marcar como no leída, detener, archivar y eliminar (detener pide confirmación; eliminar conserva la aprobación de la app).
 - **Arrastra una tarjeta** a otro grupo, a Fijadas o a Sin grupo: aparece una barra para soltarla, y también vale soltarla sobre una sección o sobre otra tarjeta.
 - **＋ Nuevo chat** en la cabecera.
 - **Colores a elección** para el suelo y la alfombra. Elige un color general o selecciona un proyecto y asígnale su propio color. La selección queda guardada en el navegador.
