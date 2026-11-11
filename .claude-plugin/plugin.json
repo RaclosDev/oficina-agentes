@@ -1,6 +1,6 @@
 {
   "name": "oficina-agentes",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Una oficina pixel con todas tus sesiones de Claude Code: quién trabaja, quién está en pausa, en una ventana flotante siempre encima. Pulsa una para ir a ella; detén, archiva o elimina desde ahí.",
   "author": { "name": "RaclosDev", "url": "https://github.com/RaclosDev" },
   "homepage": "https://github.com/RaclosDev/oficina-agentes",

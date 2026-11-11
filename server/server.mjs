@@ -6,6 +6,10 @@ import { readFile, stat } from 'node:fs/promises'
 import { watch } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
+import { homedir } from 'node:os'
+import { applyCodexEvent, codexLink, isCodexEvent, isCodexId } from '../codex/session.mjs'
+import { windowCommand } from './window.mjs'
+import { listCodexDesks, manageCodexThread } from '../codex/threads.mjs'
 
 const HOST = '127.0.0.1'
 const PORT = Number(process.env.OFICINA_PORT ?? 3210)
@@ -18,8 +22,98 @@ const GROUP_ID = /^[\w-]{1,80}$/
 const NEW_CHAT = 'claude://claude.ai/epitaxy/new'
 let actions = []
 
-let snapshot ={ desks: [], updatedAt: 0 }
+let claude = { desks: [], groups: [], available: false }
+const codex = new Map()
+let codexCaller = process.env.CODEX_THREAD_ID
+let storedCodex = new Map()
+const managingCodex = new Set()
+const removedCodex = new Set()
+let codexRevision = 0
+const codexIndex = join(process.env.CODEX_HOME || join(homedir(), '.codex'), 'session_index.jsonl')
+let codexTitles = new Map()
+let indexVersion
+let updatedAt = 0
 const clients = new Set()
+
+function snapshot() {
+  const desks = new Map(storedCodex)
+  for (const [id, { desk }] of codex) {
+    const stored = desks.get(id)
+    desks.set(id, { ...desk, online: true, title: stored?.title ?? null, project: stored?.project ?? desk.project })
+  }
+  return {
+    desks: [...claude.desks, ...Array.from(desks.values(), desk => ({
+      ...desk, title: codexTitles.get(desk.id) ?? desk.title,
+    }))],
+    groups: claude.groups,
+    hasClaude: claude.available,
+    updatedAt,
+  }
+}
+
+async function refreshStoredCodex() {
+  const revision = codexRevision
+  const desks = await listCodexDesks()
+  if (!desks || revision !== codexRevision) return
+  for (const desk of desks) removedCodex.delete(desk.id)
+  const changed = desks.length !== storedCodex.size || desks.some(desk =>
+    JSON.stringify(desk) !== JSON.stringify(storedCodex.get(desk.id)))
+  if (!changed) return
+  storedCodex = new Map(desks.map(desk => [desk.id, desk]))
+  broadcast()
+}
+
+function isCodexRunning(id) {
+  return codex.get(id)?.desk.isRunning ?? storedCodex.get(id)?.isRunning ?? false
+}
+
+async function handleCodexAction(res, sessionId, action) {
+  if (action !== 'archive' && action !== 'delete') return send(res, 400, '{"error":"bad action"}')
+  if (removedCodex.has(sessionId) || (!codex.has(sessionId) && !storedCodex.has(sessionId))) {
+    return send(res, 404, '{"error":"session not found"}')
+  }
+  if (managingCodex.has(sessionId) || isCodexRunning(sessionId)) return send(res, 409, '{"error":"session busy"}')
+  managingCodex.add(sessionId)
+  try {
+    const result = await manageCodexThread(sessionId, action, () => isCodexRunning(sessionId), codexCaller)
+    if (result.status === 'busy') return send(res, 409, '{"error":"session busy"}')
+    if (result.status === 'locked') return send(res, 409, '{"error":"codex writer active"}')
+    if (result.status !== 'ok') return send(res, 502, JSON.stringify({ error: 'codex action failed', message: result.message }))
+    codexRevision++
+    removedCodex.add(sessionId)
+    codex.delete(sessionId)
+    storedCodex.delete(sessionId)
+    broadcast()
+    return send(res, 204, '')
+  } finally {
+    managingCodex.delete(sessionId)
+  }
+}
+
+async function refreshCodexTitles() {
+  try {
+    const { mtimeMs, size } = await stat(codexIndex)
+    const version = `${mtimeMs}:${size}`
+    if (version === indexVersion) return
+    const titles = new Map()
+    for (const line of (await readFile(codexIndex, 'utf8')).split('\n')) {
+      if (!line.trim()) continue
+      try {
+        const { id, thread_name: name } = JSON.parse(line)
+        const title = typeof name === 'string' ? name.trim().slice(0, 160) : ''
+        if (isCodexId(id) && title) titles.set(id, title)
+      } catch {
+        // Codex puede estar escribiendo la última línea del índice.
+      }
+    }
+    const changed = [...codex.keys(), ...storedCodex.keys()].some(id => titles.get(id) !== codexTitles.get(id))
+    codexTitles = titles
+    indexVersion = version
+    if (changed) broadcast()
+  } catch {
+    // El índice puede no existir aún. Se vuelve a consultar cuando hay chats.
+  }
+}
 
 function send(res, status, body, type = 'application/json; charset=utf-8') {
   res.writeHead(status, { 'content-type': type, 'cache-control': 'no-store' })
@@ -49,7 +143,8 @@ try {
 }
 
 function broadcast() {
-  const data = `data: ${JSON.stringify(snapshot)}\n\n`
+  updatedAt = Date.now()
+  const data = `data: ${JSON.stringify(snapshot())}\n\n`
   for (const res of clients) res.write(data)
 }
 
@@ -62,11 +157,11 @@ const server = createServer(async (req, res) => {
   }
 
   if (req.method === 'GET' && url.pathname === '/api/health') {
-    return send(res, 200, JSON.stringify({ ok: true, updatedAt: snapshot.updatedAt }))
+    return send(res, 200, JSON.stringify({ ok: true, updatedAt }))
   }
 
   if (req.method === 'GET' && url.pathname === '/api/sessions') {
-    return send(res, 200, JSON.stringify(snapshot))
+    return send(res, 200, JSON.stringify(snapshot()))
   }
 
   if (req.method === 'GET' && url.pathname === '/api/events') {
@@ -76,7 +171,7 @@ const server = createServer(async (req, res) => {
       connection: 'keep-alive',
     })
     res.write(`event: version\ndata: ${await pageVersion()}\n\n`)
-    res.write(`data: ${JSON.stringify(snapshot)}\n\n`)
+    res.write(`data: ${JSON.stringify(snapshot())}\n\n`)
     clients.add(res)
     const ping = setInterval(() => res.write(': ping\n\n'), 25_000)
     req.on('close', () => {
@@ -100,7 +195,7 @@ const server = createServer(async (req, res) => {
       if (!Array.isArray(parsed.desks)) throw new Error('desks')
       // Varias sesiones envían por turnos y ninguna sabe su propia actividad: se conserva
       // la última conocida de cada sesión para que no aparezca y desaparezca.
-      const before = new Map(snapshot.desks.map(d => [d.id, d]))
+      const before = new Map(claude.desks.map(d => [d.id, d]))
       // Lo mismo con lo que las sesiones con una versión antigua del mod aún no envían.
       const desks = parsed.desks.map(d => {
         const prev = before.get(d.id)
@@ -110,8 +205,8 @@ const server = createServer(async (req, res) => {
         for (const k of ['onScreen', 'focused', 'pinned']) if (out[k] === undefined && prev[k] !== undefined) out[k] = prev[k]
         return out
       })
-      const groups = Array.isArray(parsed.groups) ? parsed.groups : snapshot.groups ?? []
-      snapshot = { desks, groups, updatedAt: Date.now() }
+      const groups = Array.isArray(parsed.groups) ? parsed.groups : claude.groups
+      claude = { desks, groups, available: true }
       broadcast()
       return send(res, 204, '')
     } catch {
@@ -119,8 +214,26 @@ const server = createServer(async (req, res) => {
     }
   }
 
-  // Acciones sobre sesiones (archivar, detener): la página las encola y el mod,
-  // que es quien puede hablar con la app, las recoge y las ejecuta.
+  if (req.method === 'POST' && url.pathname === '/api/codex/event') {
+    if (req.headers['x-oficina'] !== '1') return send(res, 403, '{"error":"forbidden"}')
+    let body = ''
+    for await (const chunk of req) {
+      body += chunk
+      if (body.length > 2_000) return send(res, 413, '{"error":"too large"}')
+    }
+    let event
+    try {
+      event = JSON.parse(body)
+    } catch {
+      return send(res, 400, '{"error":"bad json"}')
+    }
+    if (!isCodexEvent(event)) return send(res, 400, '{"error":"bad event"}')
+    codexCaller ??= event.id
+    if (!removedCodex.has(event.id) && applyCodexEvent(codex, event)) broadcast()
+    return send(res, 204, '')
+  }
+
+  // Codex ejecuta la acción en el servidor local. Para Claude se encola en el mod.
   if (req.method === 'POST' && url.pathname === '/api/action') {
     if (req.headers['x-oficina'] !== '1') return send(res, 403, '{"error":"forbidden"}')
     let body = ''
@@ -135,8 +248,13 @@ const server = createServer(async (req, res) => {
       return send(res, 400, '{"error":"bad json"}')
     }
     const { action, sessionId } = parsed ?? {}
+    if (action === 'delete' && parsed.confirmed !== true) return send(res, 400, '{"error":"confirmation required"}')
+    if (isCodexId(sessionId)) return handleCodexAction(res, sessionId, action)
     if (!ACTIONS.has(action) || !SESSION_ID.test(String(sessionId))) {
       return send(res, 400, '{"error":"bad action"}')
+    }
+    if ((action === 'archive' || action === 'delete') && claude.desks.some(desk => desk.id === sessionId && desk.isRunning)) {
+      return send(res, 409, '{"error":"session busy"}')
     }
     // Datos extra según la acción: el nuevo título o el grupo de destino (null = sin grupo).
     const extra = {}
@@ -205,15 +323,8 @@ const server = createServer(async (req, res) => {
   if (req.method === 'POST' && url.pathname === '/api/pin') {
     if (req.headers['x-oficina'] !== '1') return send(res, 403, '{"error":"forbidden"}')
     if (process.platform !== 'win32') return send(res, 501, '{"error":"windows only"}')
-    const child = spawn(
-      'powershell.exe',
-      ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', join(here, 'pin.ps1'), '-Url', `http://${HOST}:${PORT}/?mini`],
-      { windowsHide: true },
-    )
-    let out = ''
-    child.stdout.on('data', d => (out += d))
-    child.on('error', () => send(res, 500, '{"error":"spawn"}'))
-    child.on('close', code => send(res, code === 0 && out.includes('ok') ? 204 : 500, code === 0 ? '' : '{"error":"pin"}'))
+    const ok = await windowCommand({ action: 'show', url: `http://${HOST}:${PORT}/?mini` })
+    send(res, ok ? 204 : 500, ok ? '' : '{"error":"pin"}')
     return
   }
 
@@ -233,17 +344,26 @@ const server = createServer(async (req, res) => {
       return send(res, 400, '{"error":"bad json"}')
     }
     if (!Number.isFinite(height) || height < 150 || height > 4000) return send(res, 400, '{"error":"bad height"}')
-    const child = spawn(
-      'powershell.exe',
-      ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', join(here, 'pin.ps1'), '-Height', String(height)],
-      { windowsHide: true },
-    )
-    child.on('error', () => send(res, 500, '{"error":"spawn"}'))
-    child.on('close', code => send(res, code === 0 ? 204 : 500, code === 0 ? '' : '{"error":"resize"}'))
+    const ok = await windowCommand({ action: 'resize', height })
+    send(res, ok ? 204 : 500, ok ? '' : '{"error":"resize"}')
     return
   }
 
-  // Abre una sesión en la app de Claude. Solo enlaces de sesión locales.
+  if (req.method === 'POST' && url.pathname === '/api/window') {
+    if (req.headers['x-oficina'] !== '1') return send(res, 403, '{"error":"forbidden"}')
+    let body = ''
+    for await (const chunk of req) {
+      body += chunk
+      if (body.length > 200) return send(res, 413, '{"error":"too large"}')
+    }
+    let action
+    try { action = JSON.parse(body).action } catch { return send(res, 400, '{"error":"bad json"}') }
+    if (!['close', 'drag', 'size'].includes(action)) return send(res, 400, '{"error":"bad action"}')
+    const ok = await windowCommand({ action })
+    return send(res, ok ? 204 : 500, ok ? '' : '{"error":"window"}')
+  }
+
+  // Solo enlaces locales de sesión o el acceso fijo al nuevo chat de Claude.
   if (req.method === 'POST' && url.pathname === '/api/open') {
     if (req.headers['x-oficina'] !== '1') return send(res, 403, '{"error":"forbidden"}')
     let body = ''
@@ -257,7 +377,11 @@ const server = createServer(async (req, res) => {
     } catch {
       return send(res, 400, '{"error":"bad json"}')
     }
-    if (!SESSION_LINK.test(link) && link !== NEW_CHAT) return send(res, 400, '{"error":"not a session link"}')
+    const codexId = link.slice('codex://threads/'.length)
+    const isCodexLink = isCodexId(codexId) && link === codexLink(codexId)
+    if (!SESSION_LINK.test(link) && !isCodexLink && link !== NEW_CHAT) {
+      return send(res, 400, '{"error":"not a session link"}')
+    }
     const [cmd, args] =
       process.platform === 'win32'
         ? ['rundll32.exe', ['url.dll,FileProtocolHandler', link]]
@@ -281,4 +405,8 @@ server.on('error', err => {
   throw err
 })
 
-server.listen(PORT, HOST, () => console.log(`[oficina] http://${HOST}:${PORT}`))
+await refreshCodexTitles()
+void refreshStoredCodex()
+setInterval(() => { if (codex.size || storedCodex.size) void refreshCodexTitles() }, 5_000).unref()
+setInterval(refreshStoredCodex, 60_000).unref()
+server.listen(PORT, HOST, () => console.log(`[oficina] http://${HOST}:${server.address().port}`))
