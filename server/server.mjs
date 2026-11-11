@@ -23,6 +23,7 @@ let actions = []
 
 let claude = { desks: [], groups: [], available: false }
 const codex = new Map()
+let codexCaller = process.env.CODEX_THREAD_ID
 let storedCodex = new Map()
 const managingCodex = new Set()
 const removedCodex = new Set()
@@ -73,7 +74,7 @@ async function handleCodexAction(res, sessionId, action) {
   if (managingCodex.has(sessionId) || isCodexRunning(sessionId)) return send(res, 409, '{"error":"session busy"}')
   managingCodex.add(sessionId)
   try {
-    const result = await manageCodexThread(sessionId, action, () => isCodexRunning(sessionId))
+    const result = await manageCodexThread(sessionId, action, () => isCodexRunning(sessionId), codexCaller)
     if (result.status === 'busy') return send(res, 409, '{"error":"session busy"}')
     if (result.status === 'locked') return send(res, 409, '{"error":"codex writer active"}')
     if (result.status !== 'ok') return send(res, 502, JSON.stringify({ error: 'codex action failed', message: result.message }))
@@ -226,6 +227,7 @@ const server = createServer(async (req, res) => {
       return send(res, 400, '{"error":"bad json"}')
     }
     if (!isCodexEvent(event)) return send(res, 400, '{"error":"bad event"}')
+    codexCaller ??= event.id
     if (!removedCodex.has(event.id) && applyCodexEvent(codex, event)) broadcast()
     return send(res, 204, '')
   }

@@ -3,6 +3,11 @@ import childProcess from 'node:child_process'
 import { EventEmitter } from 'node:events'
 import { syncBuiltinESMExports } from 'node:module'
 import { PassThrough } from 'node:stream'
+import { createServer } from 'node:net'
+import { once } from 'node:events'
+import { randomUUID } from 'node:crypto'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { test } from 'node:test'
 import { manageCodexThread } from './threads.mjs'
 
@@ -45,4 +50,45 @@ test('un escritor de Codex bloquea archivar y eliminar sin declarar éxito', asy
     'initialize', 'initialized', 'thread/read', 'thread/archive',
     'initialize', 'initialized', 'thread/read', 'thread/delete',
   ])
+
+  const pipe = process.platform === 'win32' ? `\\\\.\\pipe\\oficina-test-${randomUUID()}` : join(tmpdir(), `oficina-${randomUUID()}.sock`)
+  const nativeCalls = []
+  const sockets = new Set()
+  const desktop = createServer(socket => {
+    sockets.add(socket)
+    socket.on('close', () => sockets.delete(socket))
+    let buffer = Buffer.alloc(0)
+    socket.on('data', chunk => {
+      buffer = Buffer.concat([buffer, chunk])
+      while (buffer.length >= 4 && buffer.length >= buffer.readUInt32LE(0) + 4) {
+        const length = buffer.readUInt32LE(0)
+        const request = JSON.parse(buffer.subarray(4, length + 4))
+        buffer = buffer.subarray(length + 4)
+        if (request.method === 'tools/call') nativeCalls.push(request.params.tool)
+        const result = request.method === 'tools/list'
+          ? { tools: ['set_thread_archived', 'delete_thread'].map(name => ({ name, namespace: 'codex_app' })) }
+          : { success: request.params.tool !== 'delete_thread', contentItems: [{ type: 'inputText', text: 'Cancelado' }] }
+        const body = Buffer.from(JSON.stringify({ jsonrpc: '2.0', id: request.id, result }))
+        const header = Buffer.alloc(4)
+        header.writeUInt32LE(body.length)
+        socket.write(Buffer.concat([header, body]))
+      }
+    })
+  })
+  desktop.listen(pipe)
+  await once(desktop, 'listening')
+  const previousPipe = process.env.CODEX_APP_TOOLS_PIPE_PATH
+  process.env.CODEX_APP_TOOLS_PIPE_PATH = pipe
+  t.after(() => {
+    if (previousPipe === undefined) delete process.env.CODEX_APP_TOOLS_PIPE_PATH
+    else process.env.CODEX_APP_TOOLS_PIPE_PATH = previousPipe
+    for (const socket of sockets) socket.destroy()
+    desktop.close()
+  })
+  requests.length = 0
+  assert.equal((await manageCodexThread(threadId, 'archive', () => false, threadId)).status, 'ok')
+  assert.equal((await manageCodexThread(threadId, 'delete', () => false, threadId)).status, 'failed')
+  assert.equal((await manageCodexThread(threadId, 'archive', () => true, threadId)).status, 'busy')
+  assert.deepEqual(nativeCalls, ['set_thread_archived', 'delete_thread'])
+  assert.ok(!requests.includes('thread/archive') && !requests.includes('thread/delete'))
 })

@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process'
 import { createInterface } from 'node:readline'
 import { projectOfThread } from './projects.mjs'
 import { codexLink, isCodexId } from './session.mjs'
+import { manageInDesktop } from './desktop.mjs'
 
 function withCodex(onReady, onMessage, fallback, timeoutMs = 4000) {
   return new Promise(resolve => {
@@ -84,7 +85,7 @@ export function listCodexDesks() {
   }, desks)
 }
 
-export function manageCodexThread(threadId, action, isRunning) {
+export function manageCodexThread(threadId, action, isRunning, callerThreadId) {
   if (!isCodexId(threadId) || (action !== 'archive' && action !== 'delete')) return Promise.resolve({ status: 'failed' })
   return withCodex(send => {
     send({ id: 2, method: 'thread/read', params: { threadId, includeTurns: false } })
@@ -100,10 +101,15 @@ export function manageCodexThread(threadId, action, isRunning) {
       const thread = message.result?.thread
       if (!isStoredThread(thread) || thread.id !== threadId) return finish({ status: 'failed', message: 'Codex no pudo leer el chat.' })
       if (isRunning() || thread.status?.type === 'active') return finish({ status: 'busy' })
-      send({ id: 3, method: `thread/${action}`, params: { threadId } })
+      // La app propietaria puede modificar un chat cargado sin competir por su escritor.
+      void manageInDesktop(threadId, action, callerThreadId).then(result => {
+        if (result) return finish(result)
+        if (isRunning()) return finish({ status: 'busy' })
+        send({ id: 3, method: `thread/${action}`, params: { threadId } })
+      })
     }
     if (message.id === 3) finish({ status: message.result ? 'ok' : 'failed' })
-  }, message => ({ status: 'failed', message }), 15000)
+  }, message => ({ status: 'failed', message }), 125000)
 }
 
 function isStoredThread(thread) {
