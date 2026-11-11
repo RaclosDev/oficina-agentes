@@ -37,7 +37,7 @@ function snapshot() {
   const desks = new Map(storedCodex)
   for (const [id, { desk }] of codex) {
     const stored = desks.get(id)
-    desks.set(id, { ...desk, title: stored?.title ?? null, project: stored?.project ?? desk.project })
+    desks.set(id, { ...desk, online: true, title: stored?.title ?? null, project: stored?.project ?? desk.project })
   }
   return {
     desks: [...claude.desks, ...Array.from(desks.values(), desk => ({
@@ -74,8 +74,8 @@ async function handleCodexAction(res, sessionId, action) {
   managingCodex.add(sessionId)
   try {
     const result = await manageCodexThread(sessionId, action, () => isCodexRunning(sessionId))
-    if (result === 'busy') return send(res, 409, '{"error":"session busy"}')
-    if (result !== 'ok') return send(res, 502, '{"error":"codex action failed"}')
+    if (result.status === 'busy') return send(res, 409, '{"error":"session busy"}')
+    if (result.status !== 'ok') return send(res, 502, JSON.stringify({ error: 'codex action failed', message: result.message }))
     codexRevision++
     removedCodex.add(sessionId)
     codex.delete(sessionId)

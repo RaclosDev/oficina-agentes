@@ -7,6 +7,7 @@ Una oficina pixel para tus sesiones de Claude Code y Codex. Cada sesión es un p
 Claude Code y Codex comparten la ventana flotante, los filtros por proyecto y los avisos al terminar un turno. En Claude Code, la oficina también se integra con la barra lateral y el panel de la app.
 
 - **Chats activos y recientes** con su título, aplicación, proyecto, PR y tiempo en pausa. Busca por texto, filtra por aplicación o proyecto y marca la casilla para incluir chats en pausa durante al menos 24 horas.
+- **Todos o En línea** para mostrar también los chats guardados o limitar la vista a los agentes con sesión abierta, en pantalla o trabajando.
 - **Ventana flotante siempre encima** (Windows): una ventana compacta que se ajusta al número de sesiones, se pliega con ▾ y crece al ensancharla. En otros sistemas usa el Picture-in-Picture del navegador.
 - **Un clic para ir al chat** en Claude o Codex.
 - **Archiva o elimina chats en pausa** desde su tarjeta en Claude o Codex. Los botones aparecen al pasar el ratón o al entrar con el teclado y están siempre visibles en pantallas táctiles. El borrado definitivo pide confirmación.
@@ -15,7 +16,7 @@ Claude Code y Codex comparten la ventana flotante, los filtros por proyecto y lo
 - **Todo lo de la barra lateral en el menú ⋯** de cada tarjeta: abrir, fijar, renombrar, mover a otro grupo, marcar como no leída, detener, archivar y eliminar (detener y eliminar con confirmación; eliminar pide además tu aprobación en la app).
 - **Arrastra una tarjeta** a otro grupo, a Fijadas o a Sin grupo: aparece una barra para soltarla, y también vale soltarla sobre una sección o sobre otra tarjeta.
 - **＋ Nuevo chat** en la cabecera.
-- **Departamentos**: filtra por proyecto; cada uno tiene su propia decoración (suelo y alfombra), que puedes cambiar con 🎨.
+- **Colores a elección** para el suelo y la alfombra. Elige un color general o selecciona un proyecto y asígnale su propio color. La selección queda guardada en el navegador.
 - **Aviso cuando una sesión termina** (sonido y notificación del sistema), opcional.
 - **20 idiomas**, en la rueda ⚙: español, inglés, chino, hindi, francés, árabe, bengalí, portugués, ruso, urdu, indonesio, alemán, japonés, maratí, telugu, turco, tamil, vietnamita, coreano e italiano.
 

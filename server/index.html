@@ -277,9 +277,15 @@
         <option value="claude">Claude</option>
       </select>
       <select class="tool" id="project" data-t-title="projectLabel"></select>
-      <button class="tool" id="decoration" type="button" data-t-title="theme" hidden>🎨</button>
     </div>
     <div class="filter-options">
+      <select class="tool" id="presence" data-t-title="presenceLabel">
+        <option value="" data-t="all"></option>
+        <option value="online" data-t="online"></option>
+      </select>
+      <label class="toggle"><span id="color-label"></span>
+        <select class="tool" id="decoration"></select>
+      </label>
       <label class="toggle"><input id="older" type="checkbox" /> <span id="older-label"></span></label>
       <button class="reset-filters" id="reset-filters" type="button" data-t="resetFilters" hidden></button>
     </div>
@@ -340,6 +346,12 @@
     bn: 'বাতিল', pt: 'Cancelar', ru: 'Отмена', ur: 'منسوخ کریں', id: 'Batal', de: 'Abbrechen',
     ja: 'キャンセル', mr: 'रद्द करा', te: 'రద్దు చేయి', tr: 'İptal', ta: 'ரத்துசெய்',
     vi: 'Hủy', ko: '취소', it: 'Annulla',
+  }
+  Object.assign(OFFICE_TEXT.es, { online: 'En línea', presenceLabel: 'Conexión de los agentes', colors: 'Color', projectColor: 'Color del proyecto', inheritColor: 'Usar color general', actionBusy: 'El chat sigue trabajando. Espera a que termine.', actionUnavailable: 'No se pudo conectar con Codex. Vuelve a intentarlo.', actionMissing: 'El chat ya no está disponible. Actualiza la Oficina.' })
+  Object.assign(OFFICE_TEXT.en, { online: 'Online', presenceLabel: 'Agent connection', colors: 'Color', projectColor: 'Project color', inheritColor: 'Use general color', actionBusy: 'The chat is still working. Wait for it to finish.', actionUnavailable: 'Could not connect to Codex. Try again.', actionMissing: 'This chat is no longer available. Refresh the office.' })
+  const THEME_NAMES = {
+    es: ['Madera', 'Azul', 'Verde', 'Gris', 'Noche', 'Rosa', 'Arena', 'Menta'],
+    en: ['Wood', 'Blue', 'Green', 'Grey', 'Night', 'Pink', 'Sand', 'Mint'],
   }
   const T = (key, vars = {}) => {
     const i = KEYS.indexOf(key)
@@ -424,14 +436,14 @@
   }
 
   function themeOf(project) {
-    const raw = store.get('theme.' + project, '')
+    return savedTheme('theme.' + project) ?? savedTheme('theme.default') ?? 0
+  }
+  function savedTheme(key) {
+    const raw = store.get(key, '')
     const saved = Number(raw)
     return raw !== '' && Number.isInteger(saved) && saved >= 0 && saved < THEMES.length
       ? saved
-      : hash(project) % THEMES.length
-  }
-  function cycleTheme(project) {
-    store.set('theme.' + project, String((themeOf(project) + 1) % THEMES.length))
+      : null
   }
   function paintBackground() {
     for (const d of [document, pipWin?.document].filter(Boolean)) {
@@ -451,6 +463,7 @@
   const projectName = project => project || T('noProject')
   let filter = ''
   let providerFilter = ''
+  let presenceFilter = ''
   let query = ''
   let confirming = null
   const pendingActions = new Set()
@@ -720,8 +733,16 @@
     pendingActions.add(d.id)
     render()
     try {
-      if (!(await post('/api/action', { action, sessionId: d.id, confirmed }))) toast(T('failed'), true)
-      else if (d.provider === 'codex') toast(action === 'archive' ? T('archived', { t: titleOf(d) }) : T('done'))
+      const response = await fetch('/api/action', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-oficina': '1' },
+        body: JSON.stringify({ action, sessionId: d.id, confirmed }),
+      })
+      if (!response.ok) {
+        const detail = await response.json().catch(() => ({}))
+        const key = { 409: 'actionBusy', 404: 'actionMissing', 502: 'actionUnavailable' }[response.status] ?? 'failed'
+        toast(detail.message ? `${T('failed')} · ${detail.message}` : T(key), true)
+      } else if (d.provider === 'codex') toast(action === 'archive' ? T('archived', { t: titleOf(d) }) : T('done'))
     } catch {
       toast(T('failed'), true)
     } finally {
@@ -796,16 +817,17 @@
     const options = [['', T('allProjects')], ...projects.map(name => ['p' + name, projectName(name)])]
     if (filter && !options.some(([value]) => value === filter)) filter = ''
     const matches = stableOrder(providerDesks).filter(d => {
+      if (presenceFilter && !(d.online || d.isRunning || d.onScreen || d.focused)) return false
       const project = d.project || ''
       if (filter && project !== filter.slice(1)) return false
       const text = normalize(`${titleOf(d)} ${providerOf(d)} ${projectName(project)} ${d.group ?? ''} ${d.pr ?? ''}`)
       return terms.every(term => text.includes(term))
     })
     const cutoff = Date.now() - DAY
-    const isOlder = d => !d.isRunning && Date.parse(d.lastActivityAt) <= cutoff
+    const isOlder = d => !d.online && !d.isRunning && !d.onScreen && !d.focused && Date.parse(d.lastActivityAt) <= cutoff
     const recent = matches.filter(d => !isOlder(d))
     const desks = showOlder ? matches : recent
-    const isFiltered = Boolean(terms.length || filter || providerFilter)
+    const isFiltered = Boolean(terms.length || filter || providerFilter || presenceFilter)
     el('older-label').textContent = T('older', { n: matches.length - recent.length })
     el('older').checked = showOlder
     el('reset-filters').hidden = !isFiltered && !showOlder
@@ -831,7 +853,17 @@
     }
     project.value = filter
     el('provider').value = providerFilter
-    el('decoration').hidden = !filter
+    el('presence').value = presenceFilter
+    const decoration = el('decoration')
+    const themeOptions = (THEME_NAMES[lang] ?? THEME_NAMES.en).map((name, index) => [String(index), name])
+    if (filter) themeOptions.unshift(['', T('inheritColor')])
+    const themeKey = JSON.stringify(themeOptions)
+    if (decoration.dataset.options !== themeKey) {
+      decoration.innerHTML = themeOptions.map(([value, name]) => `<option value="${value}">${esc(name)}</option>`).join('')
+      decoration.dataset.options = themeKey
+    }
+    decoration.value = filter ? String(savedTheme('theme.' + filter.slice(1)) ?? '') : String(savedTheme('theme.default') ?? 0)
+    el('color-label').textContent = T(filter ? 'projectColor' : 'colors')
     paintBackground()
 
     const search = el('search')
@@ -986,22 +1018,28 @@
     const provider = d.getElementById('provider')
     const project = d.getElementById('project')
     const older = d.getElementById('older')
+    const presence = d.getElementById('presence')
     function updateFilters() {
       query = search.value
       providerFilter = provider.value
+      presenceFilter = presence.value
       filter = project.value
       showOlder = older.checked
       render()
       fitWindow()
     }
-    search.oninput = provider.onchange = project.onchange = older.onchange = updateFilters
+    search.oninput = provider.onchange = project.onchange = presence.onchange = older.onchange = updateFilters
     d.getElementById('reset-filters').onclick = () => {
-      search.value = provider.value = project.value = ''
+      search.value = provider.value = project.value = presence.value = ''
       older.checked = false
       updateFilters()
       search.focus()
     }
-    d.getElementById('decoration').onclick = () => { cycleTheme(filter.slice(1)); render(); fitWindow() }
+    d.getElementById('decoration').onchange = ev => {
+      store.set(filter ? 'theme.' + filter.slice(1) : 'theme.default', ev.target.value)
+      render()
+      fitWindow()
+    }
     const gear = d.getElementById('gear'), menu = d.getElementById('menu')
     if (gear && menu && !gear.dataset.ready) {
       gear.dataset.ready = '1'
