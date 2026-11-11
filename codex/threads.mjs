@@ -89,7 +89,13 @@ export function manageCodexThread(threadId, action, isRunning) {
   return withCodex(send => {
     send({ id: 2, method: 'thread/read', params: { threadId, includeTurns: false } })
   }, (message, send, finish) => {
-    if (message.error) return finish({ status: 'failed', message: message.error.message })
+    if (message.error) {
+      const messageText = message.error.message
+      return finish({
+        status: typeof messageText === 'string' && /already has an active writer/i.test(messageText) ? 'locked' : 'failed',
+        message: messageText,
+      })
+    }
     if (message.id === 2) {
       const thread = message.result?.thread
       if (!isStoredThread(thread) || thread.id !== threadId) return finish({ status: 'failed', message: 'Codex no pudo leer el chat.' })

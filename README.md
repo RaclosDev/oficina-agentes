@@ -53,7 +53,7 @@ Abre Codex en la terminal, escribe `/hooks` y revisa y habilita los hooks de **o
 
 Si ya usabas la oficina con Claude, actualiza también su plugin y reinicia el proceso de Node que sirve la oficina para cargar la nueva versión. Ambos plugins comparten el puerto 3210.
 
-Al arrancar, la oficina carga hasta 50 chats locales sin archivar desde `codex` en el PATH. Los hooks actualizan el estado de los turnos en directo. Los grupos y el menú ⋯ corresponden a Claude. Archivar y eliminar en Codex requiere una versión de `codex` que admita ambas acciones en su servidor de aplicaciones.
+Al arrancar, la oficina carga hasta 50 chats locales sin archivar desde `codex` en el PATH. Los hooks actualizan el estado de los turnos en directo. Los grupos y el menú ⋯ corresponden a Claude. Archivar y eliminar en Codex requiere una versión de `codex` que admita ambas acciones en su servidor de aplicaciones. Si la app de Codex mantiene el chat cargado, su bloqueo de escritura impide modificarlo desde el servidor independiente de la Oficina, incluso estando en reposo. En ese caso, usa el menú del chat en Codex para archivarlo o eliminarlo.
 
 ## Uso
 

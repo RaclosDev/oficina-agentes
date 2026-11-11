@@ -75,6 +75,7 @@ async function handleCodexAction(res, sessionId, action) {
   try {
     const result = await manageCodexThread(sessionId, action, () => isCodexRunning(sessionId))
     if (result.status === 'busy') return send(res, 409, '{"error":"session busy"}')
+    if (result.status === 'locked') return send(res, 409, '{"error":"codex writer active"}')
     if (result.status !== 'ok') return send(res, 502, JSON.stringify({ error: 'codex action failed', message: result.message }))
     codexRevision++
     removedCodex.add(sessionId)

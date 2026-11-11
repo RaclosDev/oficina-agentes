@@ -347,8 +347,8 @@
     ja: 'キャンセル', mr: 'रद्द करा', te: 'రద్దు చేయి', tr: 'İptal', ta: 'ரத்துசெய்',
     vi: 'Hủy', ko: '취소', it: 'Annulla',
   }
-  Object.assign(OFFICE_TEXT.es, { online: 'En línea', presenceLabel: 'Conexión de los agentes', colors: 'Color', projectColor: 'Color del proyecto', inheritColor: 'Usar color general', actionBusy: 'El chat sigue trabajando. Espera a que termine.', actionUnavailable: 'No se pudo conectar con Codex. Vuelve a intentarlo.', actionMissing: 'El chat ya no está disponible. Actualiza la Oficina.' })
-  Object.assign(OFFICE_TEXT.en, { online: 'Online', presenceLabel: 'Agent connection', colors: 'Color', projectColor: 'Project color', inheritColor: 'Use general color', actionBusy: 'The chat is still working. Wait for it to finish.', actionUnavailable: 'Could not connect to Codex. Try again.', actionMissing: 'This chat is no longer available. Refresh the office.' })
+  Object.assign(OFFICE_TEXT.es, { online: 'En línea', presenceLabel: 'Conexión de los agentes', colors: 'Color', projectColor: 'Color del proyecto', inheritColor: 'Usar color general', actionBusy: 'El chat sigue trabajando. Espera a que termine.', actionLocked: 'Codex mantiene este chat abierto. Ábrelo y usa su menú para archivar o eliminar.', actionUnavailable: 'No se pudo conectar con Codex. Vuelve a intentarlo.', actionMissing: 'El chat ya no está disponible. Actualiza la Oficina.' })
+  Object.assign(OFFICE_TEXT.en, { online: 'Online', presenceLabel: 'Agent connection', colors: 'Color', projectColor: 'Project color', inheritColor: 'Use general color', actionBusy: 'The chat is still working. Wait for it to finish.', actionLocked: 'Codex is keeping this chat open. Open it and use its menu to archive or delete.', actionUnavailable: 'Could not connect to Codex. Try again.', actionMissing: 'This chat is no longer available. Refresh the office.' })
   const THEME_NAMES = {
     es: ['Madera', 'Azul', 'Verde', 'Gris', 'Noche', 'Rosa', 'Arena', 'Menta'],
     en: ['Wood', 'Blue', 'Green', 'Grey', 'Night', 'Pink', 'Sand', 'Mint'],
@@ -740,7 +740,8 @@
       })
       if (!response.ok) {
         const detail = await response.json().catch(() => ({}))
-        const key = { 409: 'actionBusy', 404: 'actionMissing', 502: 'actionUnavailable' }[response.status] ?? 'failed'
+        const key = detail.error === 'codex writer active' ? 'actionLocked'
+          : { 409: 'actionBusy', 404: 'actionMissing', 502: 'actionUnavailable' }[response.status] ?? 'failed'
         toast(detail.message ? `${T('failed')} · ${detail.message}` : T(key), true)
       } else if (d.provider === 'codex') toast(action === 'archive' ? T('archived', { t: titleOf(d) }) : T('done'))
     } catch {
