@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import { once } from 'node:events'
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { test } from 'node:test'
 
@@ -9,9 +12,17 @@ const turnId = '22222222-2222-2222-2222-222222222222'
 const claudeDesk = { id: `local_${id}`, title: 'Chat de Claude', isRunning: false }
 
 test('los hooks de Codex y las listas de Claude comparten la oficina', { timeout: 10_000 }, async t => {
+  const codexHome = await mkdtemp(join(tmpdir(), 'oficina-codex-'))
+  t.after(() => rm(codexHome, { recursive: true, force: true }))
+  const name = 'Preparar la próxima versión'
+  await writeFile(join(codexHome, 'session_index.jsonl'), [
+    JSON.stringify({ id, thread_name: 'Nombre anterior' }),
+    JSON.stringify({ id, thread_name: name }),
+    '{"id":',
+  ].join('\n'))
   const script = fileURLToPath(new URL('./server.mjs', import.meta.url))
   const server = spawn(process.execPath, [script], {
-    env: { ...process.env, OFICINA_PORT: '0' },
+    env: { ...process.env, CODEX_HOME: codexHome, OFICINA_PORT: '0' },
   })
   t.after(() => server.kill())
   const [startup] = await once(server.stdout, 'data')
@@ -45,6 +56,7 @@ test('los hooks de Codex y las listas de Claude comparten la oficina', { timeout
   let state = await snapshot()
   assert.equal(state.hasClaude, false)
   assert.equal(state.desks[0].project, 'mi proyecto')
+  assert.equal(state.desks[0].title, name)
   assert.equal(state.desks[0].isRunning, false)
 
   assert.equal((await post('/api/sessions', { desks: [claudeDesk] })).status, 204)
@@ -66,6 +78,8 @@ test('los hooks de Codex y las listas de Claude comparten la oficina', { timeout
   assert.equal((await snapshot()).desks[1].isRunning, false)
   await hook('SessionEnd')
   assert.deepEqual((await snapshot()).desks, [claudeDesk])
+  assert.equal((await post('/api/codex/event', { name: 'SessionStart', id: turnId, project: '' })).status, 204)
+  assert.equal((await snapshot()).desks[1].title, null)
 
   assert.equal((await post('/api/codex/event', { name: 'SessionStart', id, project: '' }, false)).status, 403)
   assert.equal((await post('/api/codex/event', { name: 'SessionStart', id: 'bad', project: '' })).status, 400)

@@ -6,9 +6,9 @@ Una oficina pixel para tus sesiones de Claude Code y Codex. Cada sesión es un p
 
 Claude Code y Codex comparten la ventana flotante, los filtros por proyecto y los avisos al terminar un turno. En Claude Code, la oficina también se integra con la barra lateral y el panel de la app.
 
-- **Todas tus sesiones de un vistazo**: título, proyecto (carpeta), grupo de la barra lateral, PR y cuánto lleva en pausa.
+- **Chats activos y recientes** con su título, aplicación, proyecto, PR y tiempo en pausa. Los chats en pausa durante al menos 24 horas aparecen en **Ver anteriores**.
 - **Ventana flotante siempre encima** (Windows): una ventana compacta que se ajusta al número de sesiones, se pliega con ▾ y crece al ensancharla. En otros sistemas usa el Picture-in-Picture del navegador.
-- **Un clic para ir a la sesión** en la app de Claude.
+- **Un clic para ir al chat** en Claude o Codex.
 - **Como una barra lateral**: marca la sesión que tienes abierta, pone «Nuevo» en las que han terminado desde la última vez que las viste, y agrupa por tus grupos de la barra lateral con las fijadas arriba. Con muchas sesiones aparece un buscador.
 - **Qué está haciendo cada una**: «Editando archivos…», «Ejecutando comandos…» mientras trabaja, o la primera frase de su último mensaje cuando para.
 - **Todo lo de la barra lateral en el menú ⋯** de cada tarjeta: abrir, fijar, renombrar, mover a otro grupo, marcar como no leída, detener, archivar y eliminar (detener y eliminar con confirmación; eliminar pide además tu aprobación en la app).
@@ -80,7 +80,7 @@ La primera vez que se carga, el plugin te avisa si faltan. Eliminar una sesión 
 
 Cada sesión de Claude con el plugin pide a la app la lista de sesiones cada 15 segundos y la envía a un servidor local sin dependencias (`server/server.mjs`), que solo escucha en `127.0.0.1:3210`. La página recibe los cambios al momento. Las acciones (detener, archivar, eliminar) que pides en la página las ejecuta una sesión de Claude a través de la app, con tus permisos de siempre. Abrir una sesión pasa su enlace `claude://` al sistema.
 
-Los hooks de Codex envían al mismo servidor el tipo de evento, los identificadores del chat y del turno y el nombre de la carpeta. El servidor conserva las tarjetas en memoria y abre sus enlaces `codex://threads/…` en la app. Los mensajes y el historial de Codex se quedan en Codex.
+Los hooks de Codex envían al mismo servidor el tipo de evento, los identificadores del chat y del turno y el nombre de la carpeta. El servidor conserva las tarjetas en memoria, lee los títulos del índice local de Codex (`session_index.jsonl`) y abre sus enlaces `codex://threads/…` en la app. Los mensajes y el historial de Codex se quedan en Codex.
 
 El servidor solo acepta escrituras con una cabecera propia que una web ajena no puede enviar. Los datos de la oficina se quedan en tu ordenador.
 

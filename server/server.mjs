@@ -6,6 +6,7 @@ import { readFile, stat } from 'node:fs/promises'
 import { watch } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
+import { homedir } from 'node:os'
 import { applyCodexEvent, codexLink, isCodexEvent, isCodexId } from '../codex/session.mjs'
 
 const HOST = '127.0.0.1'
@@ -21,15 +22,45 @@ let actions = []
 
 let claude = { desks: [], groups: [], available: false }
 const codex = new Map()
+const codexIndex = join(process.env.CODEX_HOME || join(homedir(), '.codex'), 'session_index.jsonl')
+let codexTitles = new Map()
+let indexVersion
 let updatedAt = 0
 const clients = new Set()
 
 function snapshot() {
   return {
-    desks: [...claude.desks, ...Array.from(codex.values(), session => session.desk)],
+    desks: [...claude.desks, ...Array.from(codex.values(), ({ desk }) => ({
+      ...desk, title: codexTitles.get(desk.id) ?? null,
+    }))],
     groups: claude.groups,
     hasClaude: claude.available,
     updatedAt,
+  }
+}
+
+async function refreshCodexTitles() {
+  try {
+    const { mtimeMs, size } = await stat(codexIndex)
+    const version = `${mtimeMs}:${size}`
+    if (version === indexVersion) return
+    const titles = new Map()
+    for (const line of (await readFile(codexIndex, 'utf8')).split('\n')) {
+      if (!line.trim()) continue
+      try {
+        const { id, thread_name: name } = JSON.parse(line)
+        const title = typeof name === 'string' ? name.trim().slice(0, 160) : ''
+        if (isCodexId(id) && title) titles.set(id, title)
+      } catch {
+        // Codex puede estar escribiendo la última línea del índice.
+      }
+    }
+    const changed = [...codex.keys()].some(id => titles.get(id) !== codexTitles.get(id))
+    codexTitles = titles
+    indexVersion = version
+    if (changed) broadcast()
+  } catch {
+    // El índice puede no existir aún. Se vuelve a consultar cuando hay chats.
   }
 }
 
@@ -316,4 +347,6 @@ server.on('error', err => {
   throw err
 })
 
+await refreshCodexTitles()
+setInterval(() => { if (codex.size) void refreshCodexTitles() }, 5_000).unref()
 server.listen(PORT, HOST, () => console.log(`[oficina] http://${HOST}:${server.address().port}`))

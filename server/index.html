@@ -6,99 +6,113 @@
 <title>Oficina</title>
 <style id="oficina-style">
   :root {
-    --bg: #1c1d26;
-    --panel: #262836;
-    --line: #3a3d50;
-    --ink: #f2efe9;
-    --dim: #a3a7b8;
-    --work: #5fd38d;
-    --rest: #8d93a8;
-    --accent: #f3a712;
-    --danger: #ff7a6b;
+    color-scheme: light;
+    --bg: #f4f1eb;
+    --panel: #fffdf9;
+    --line: #ded7ca;
+    --ink: #29251f;
+    --dim: #665e52;
+    --work: #176244;
+    --rest: #817462;
+    --accent: #9b452d;
+    --danger: #a22d25;
+    --control: #8a7c69;
   }
   * { box-sizing: border-box; }
   body {
     margin: 0;
     background: var(--bg);
     color: var(--ink);
-    font: 14px/1.35 ui-monospace, 'Cascadia Mono', Consolas, monospace;
+    font: 0.9375rem/1.45 'Instrument Sans', 'Segoe UI', sans-serif;
   }
-  #app { padding: 14px; }
-  header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
-  header h1 { font-size: 16px; margin: 0 auto 0 0; }
-  .count { color: var(--dim); }
-  .count b { color: var(--work); }
+  #app { max-width: 1260px; margin-inline: auto; padding: clamp(16px, 4vw, 54px); }
+  header {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+    padding-bottom: 22px; margin-bottom: 20px; border-bottom: 1px solid var(--line);
+  }
+  .heading { display: flex; align-items: center; gap: 14px; min-width: 0; }
+  .mark { width: 44px; height: 44px; border-radius: 8px; background: var(--ink); display: grid; place-items: center; flex: none; }
+  .mark::before {
+    content: ''; width: 6px; height: 6px; margin: 0 9px 9px 0; background: #f7dab9;
+    box-shadow: 9px 0 #f7dab9, 0 9px #f7dab9, 9px 9px #cd8263;
+  }
+  header h1 { font-size: clamp(1.5rem, 4vw, 2.25rem); letter-spacing: -0.045em; line-height: 1.05; margin: 0 0 4px; }
+  .count { color: var(--dim); font-size: 0.8125rem; display: flex; gap: 12px; flex-wrap: wrap; }
+  .count span { display: inline-flex; gap: 6px; align-items: center; }
+  .count .live { color: var(--work); font-weight: 650; }
+  .count .live .dot { background: var(--work); }
   .tool, select.tool {
     font: inherit;
     color: var(--ink);
     background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 5px 10px;
+    border: 1px solid var(--control);
+    border-radius: 7px;
+    min-height: 36px;
+    padding: 5px 12px;
     cursor: pointer;
   }
-  .tool:hover { border-color: var(--accent); }
+  .tool:hover { border-color: var(--accent); color: var(--accent); }
+  #pip { color: var(--panel); background: var(--ink); border-color: var(--ink); }
+  #pip:hover { background: var(--accent); border-color: var(--accent); }
   .toggle { display: inline-flex; align-items: center; gap: 6px; color: var(--dim); cursor: pointer; font-size: 12px; }
   :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+  .filters { display: flex; align-items: start; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; }
+  .filters:has(.chips:empty):has(.search[hidden]):has(.older[hidden]) { display: none; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; flex: 1 1 240px; min-width: 0; }
+  .chips:empty { display: none; }
   .chip {
-    font: inherit; font-size: 12px; color: var(--dim);
-    background: transparent; border: 1px solid var(--line); border-radius: 999px;
-    padding: 3px 10px; cursor: pointer;
+    font: inherit; font-size: 0.8125rem; color: var(--dim);
+    background: var(--panel); border: 1px solid var(--control); border-radius: 6px;
+    min-height: 34px; padding: 4px 10px; cursor: pointer;
     max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  .chip[aria-pressed='true'] { color: var(--bg); background: var(--accent); border-color: var(--accent); }
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(190px, 100%), 1fr)); gap: 12px; }
+  .chip[aria-pressed='true'] { color: var(--panel); background: var(--accent); border-color: var(--accent); }
+  .older { font-size: 0.8125rem; min-height: 34px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(290px, 100%), 1fr)); gap: 12px; align-items: stretch; }
   .card {
     position: relative;
-    display: flex; flex-direction: column;
+    display: grid; grid-template-columns: 88px minmax(0, 1fr); align-items: center; gap: 12px;
+    min-width: 0; min-height: 91px; padding: 10px;
     background: var(--panel);
     border: 1px solid var(--line);
-    border-radius: 10px;
+    border-radius: 12px;
     cursor: pointer;
-    transition: transform 0.12s ease, border-color 0.12s ease;
+    transition: border-color 0.12s ease, background 0.12s ease;
   }
-  .card:hover { transform: translateY(-2px); border-color: var(--accent); }
+  .card:hover { border-color: var(--accent); background: #fff9ef; }
+  .card.working { border-inline-start: 3px solid var(--work); padding-inline-start: 8px; }
   .card.nolink { cursor: default; }
   .card.onscreen { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
   .card.focused { outline: 2px solid var(--accent); outline-offset: -2px; }
   .badge {
-    display: inline-block; margin-inline-end: 6px; padding: 1px 6px; vertical-align: 1px;
-    font-size: 10px; font-weight: 700; border-radius: 999px; color: var(--bg); background: var(--accent);
+    display: inline-block; padding: 1px 5px;
+    font-size: 0.625rem; font-weight: 700; border-radius: 4px; color: var(--panel); background: var(--accent);
   }
   .badge.new { background: var(--work); }
   .doing {
-    font-size: 12px; color: var(--ink); opacity: 0.85;
+    font-size: 0.75rem; color: var(--dim);
     overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
   }
   .doing.busy { color: var(--work); opacity: 1; }
   .section {
-    grid-column: 1 / -1; margin-top: 4px;
-    font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--dim);
+    grid-column: 1 / -1; margin: 6px 0 0;
+    font-size: 0.8125rem; font-weight: 700; color: var(--dim);
   }
   .search {
-    width: 100%; margin: 0 0 10px; padding: 6px 10px;
-    font: inherit; font-size: 13px; color: var(--ink);
-    background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+    flex: 0 1 220px; min-width: 0; min-height: 34px; padding: 6px 10px;
+    font: inherit; font-size: 0.8125rem; color: var(--ink);
+    background: var(--panel); border: 1px solid var(--control); border-radius: 6px;
   }
   .search[hidden] { display: none; }
   .card.nolink:hover { transform: none; }
   .card svg { display: block; width: 100%; height: auto; }
-  /* Foto del agente con el menú ⋯ arriba a la izquierda y el estado encima, abajo. */
-  .pic { position: relative; overflow: hidden; border-radius: 9px 9px 0 0; }
+  .pic { overflow: hidden; border-radius: 6px; background: #e4d4bc; }
   .more {
-    position: absolute; top: 4px; inset-inline-end: 4px; z-index: 2;
-    font: inherit; font-size: 13px; line-height: 1; padding: 3px 7px; cursor: pointer;
-    color: var(--ink); background: rgba(28, 29, 38, 0.78); border: 1px solid var(--line); border-radius: 6px;
+    position: absolute; top: 7px; inset-inline-end: 7px; z-index: 2;
+    font: inherit; font-size: 0.9375rem; line-height: 1; width: 28px; min-height: 28px; cursor: pointer;
+    color: var(--dim); background: var(--panel); border: 1px solid var(--control); border-radius: 5px;
   }
   .more:hover, .more[aria-expanded='true'] { border-color: var(--accent); }
-  .pill {
-    position: absolute; bottom: 4px; inset-inline-start: 4px; max-width: calc(100% - 8px);
-    display: inline-flex; align-items: center; gap: 5px; padding: 2px 7px;
-    font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    color: var(--ink); background: rgba(28, 29, 38, 0.82); border-radius: 999px;
-  }
-  .working .pill { color: var(--work); }
   /* Posición fija calculada en placeMenu(): se ajusta a los bordes de la ventana y solo
      tiene scroll si es más alto que la propia ventana. */
   .dropdown {
@@ -128,7 +142,6 @@
   .card.zone-over { border-color: var(--accent); }
   .card[draggable='true'] { -webkit-user-drag: element; }
   .dragging .card.is-dragged { opacity: 0.45; }
-  .compact .info { padding-inline-end: 30px; }
   .mi {
     font: inherit; font-size: 12px; text-align: start; padding: 6px 8px; cursor: pointer;
     color: var(--ink); background: transparent; border: 0; border-radius: 5px;
@@ -142,14 +155,18 @@
   .newchat span { margin-inline-start: 4px; }
   .newchat[hidden] { display: none; }
   .compact .newchat span { display: none; }
-  .info { padding: 8px 10px 10px; display: grid; gap: 2px; min-width: 0; }
-  .title { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .meta { color: var(--dim); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .state { font-size: 12px; display: flex; align-items: center; gap: 6px; }
+  .info { display: grid; gap: 3px; min-width: 0; }
+  .card.managed .info { padding-inline-end: 22px; }
+  .title {
+    font-weight: 720; line-height: 1.23; overflow-wrap: anywhere; overflow: hidden;
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+  }
+  .meta { color: var(--dim); font-size: 0.75rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .provider { font-weight: 700; color: var(--ink); }
+  .state { color: var(--dim); font-size: 0.75rem; display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
   .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--rest); flex: none; }
-  .working .dot { background: var(--work); animation: pulse 1.4s infinite; }
+  .working .dot { background: var(--work); }
   .working .state { color: var(--work); }
-  @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(95, 211, 141, 0.6); } 100% { box-shadow: 0 0 0 7px rgba(95, 211, 141, 0); } }
   .actions { display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap; }
   .act {
     font: inherit; font-size: 11px; line-height: 1;
@@ -171,8 +188,7 @@
   .confirm p { margin: 0; overflow-wrap: anywhere; }
   .confirm .row { display: flex; gap: 8px; }
   .confirm .yes { border-color: var(--danger); color: var(--danger); }
-  .empty { color: var(--dim); padding: 30px 0; text-align: center; grid-column: 1 / -1; }
-  .hint { color: var(--dim); font-size: 12px; margin-top: 12px; }
+  .empty { color: var(--dim); padding: 32px 12px; text-align: center; grid-column: 1 / -1; border: 1px dashed var(--control); border-radius: 12px; }
   #toasts { position: fixed; bottom: 12px; inset-inline-start: 50%; transform: translateX(-50%); display: grid; gap: 6px; z-index: 5; width: min(90vw, 420px); }
   [dir='rtl'] #toasts { transform: translateX(50%); }
   .toast { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; font-size: 12px; }
@@ -188,37 +204,28 @@
   .toast .rule.copied { border-color: var(--work); color: var(--work); }
 
   /* Ventana flotante */
-  .compact #app { padding: 8px; }
-  .compact header { margin-bottom: 6px; }
-  .compact header h1 { font-size: 14px; }
-  .compact .hint, .compact #pip { display: none; }
+  .compact #app { padding: 10px; }
+  .compact header { gap: 8px; margin-bottom: 8px; padding-bottom: 8px; }
+  .compact .heading { gap: 8px; }
+  .compact .mark { width: 29px; height: 29px; border-radius: 5px; }
+  .compact header h1 { font-size: 1rem; margin-bottom: 2px; }
+  .compact .count { font-size: 0.6875rem; gap: 6px; }
+  .compact #pip { display: none; }
   .fold { display: none; padding: 5px 8px; line-height: 1; }
   .compact .fold { display: inline-block; }
-  .settings { display: flex; gap: 6px; }
-  .folded .chips, .folded .grid, .folded .hint { display: none; }
-  .folded header { margin-bottom: 0; }
-  .compact .chips { margin-bottom: 6px; }
-  .compact .grid { grid-template-columns: 1fr; gap: 6px; }
-  .compact .card { flex-direction: row; align-items: center; }
-  .compact .card svg { width: 100%; }
-  .compact .pic { width: 84px; flex: none; border-radius: 9px 0 0 9px; align-self: stretch; display: flex; align-items: center; background: #d8c3a5; }
-  .compact .pill { font-size: 9px; padding: 1px 5px; gap: 3px; bottom: 3px; inset-inline-start: 3px; }
-  .compact .pill .dot { width: 6px; height: 6px; }
-  .compact .more { top: 4px; inset-inline-end: 4px; font-size: 11px; padding: 2px 6px; }
-  .compact .info { padding: 4px 30px 4px 8px; padding-inline: 8px 30px; }
+  .settings { display: flex; gap: 6px; flex-wrap: wrap; }
+  .folded .filters, .folded .grid { display: none; }
+  .folded header { margin-bottom: 0; padding-bottom: 0; border-bottom: 0; }
+  .compact .filters { margin-bottom: 8px; gap: 6px; }
+  .compact .grid { grid-template-columns: repeat(auto-fill, minmax(min(250px, 100%), 1fr)); gap: 6px; }
+  .compact .card { grid-template-columns: 65px minmax(0, 1fr); gap: 8px; min-height: 72px; padding-block: 6px; }
+  .compact .card .title { font-size: 0.8125rem; }
   .compact .actions { margin-top: 3px; }
   .compact .act span { display: none; }
   .compact .confirm { flex-direction: row; justify-content: space-between; padding: 6px 8px; font-size: 12px; text-align: start; }
-  /* Ventana compacta más ancha: vuelven las tarjetas grandes y crecen con el ancho. */
-  @media (min-width: 460px) {
-    .compact .grid { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
-    .compact .card { flex-direction: column; align-items: stretch; }
-    .compact .card svg { width: 100%; }
-    .compact .pic { width: auto; border-radius: 9px 9px 0 0; display: block; }
-    .compact .pill { font-size: 11px; padding: 2px 7px; }
-    .compact .info { padding: 8px 10px 10px; }
-    .compact .act span { display: inline; }
-    .compact .confirm { flex-direction: column; justify-content: center; text-align: center; }
+  @media (max-width: 440px) {
+    .filters .search { flex: 1 1 150px; }
+    .menu { max-width: calc(100vw - 24px); }
   }
   .settings { position: relative; }
   .gear { padding: 5px 8px; line-height: 1; }
@@ -226,39 +233,42 @@
     position: absolute; top: calc(100% + 6px); inset-inline-end: 0; z-index: 10;
     display: grid; gap: 10px; min-width: 220px; padding: 10px;
     background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    box-shadow: 0 8px 24px #29251f26;
   }
   .menu[hidden] { display: none; }
   .field { display: grid; gap: 4px; font-size: 12px; color: var(--dim); }
   .field select { width: 100%; }
 
   @media (prefers-reduced-motion: reduce) {
-    .working .dot { animation: none; }
-    .card, .actions { transition: none; }
+    body, .card { transition: none; }
   }
 </style>
 </head>
 <body>
 <div id="app">
   <header>
-    <h1 data-t="title"></h1>
-    <span class="count" id="count"></span>
+    <div class="heading">
+      <span class="mark" aria-hidden="true"></span>
+      <div><h1 data-t="title"></h1><div class="count" id="count" role="status"></div></div>
+    </div>
     <div class="settings">
       <button class="tool newchat" id="newchat" type="button" data-t-title="newChat">＋<span data-t="newChat"></span></button>
-      <button class="tool gear" id="gear" type="button" aria-haspopup="true" aria-expanded="false" data-t-title="lang">⚙</button>
+      <button class="tool" id="pip" type="button" data-t="float" data-t-title="floatTip"></button>
+      <button class="tool gear" id="gear" type="button" aria-haspopup="true" aria-expanded="false" data-t-title="settingsLabel">⚙</button>
       <button class="tool fold" id="fold" type="button" aria-expanded="true">▾</button>
       <div class="menu" id="menu" hidden>
         <label class="field"><span data-t="lang"></span><select class="tool" id="lang"></select></label>
         <label class="toggle"><input type="checkbox" id="notify" /> <span data-t="notify"></span></label>
       </div>
     </div>
-    <button class="tool" id="pip" type="button" data-t="float" data-t-title="floatTip"></button>
   </header>
-  <div class="chips" id="chips"></div>
+  <div class="filters">
+    <div class="chips" id="chips"></div>
+    <input class="search" id="search" type="search" autocomplete="off" hidden />
+    <button class="tool older" id="older" type="button" aria-pressed="false" hidden></button>
+  </div>
   <div class="dropbar" id="dropbar" hidden></div>
-  <input class="search" id="search" type="search" autocomplete="off" hidden />
   <div class="grid" id="grid"></div>
-  <p class="hint" data-t="hint"></p>
   <div id="toasts" role="status" aria-live="polite"></div>
 </div>
 
@@ -304,9 +314,13 @@
   }
   let lang = store.get('lang', '') || guessLang()
   if (!LANGS[lang]) lang = 'es'
+  const OFFICE_TEXT = {
+    es: { older: 'Ver anteriores ({n})', recent: 'Solo recientes', emptyRecent: 'No hay chats activos ni recientes.', noMatches: 'Ningún chat coincide con los filtros.', untitledCodex: 'Chat de Codex', settingsLabel: 'Ajustes' },
+    en: { older: 'Show older chats ({n})', recent: 'Recent only', emptyRecent: 'No active or recent chats.', noMatches: 'No chats match the filters.', untitledCodex: 'Codex chat', settingsLabel: 'Settings' },
+  }
   const T = (key, vars = {}) => {
     const i = KEYS.indexOf(key)
-    const s = (LANGS[lang][1][i] ?? LANGS.es[1][i] ?? key)
+    const s = OFFICE_TEXT[lang]?.[key] ?? OFFICE_TEXT.en[key] ?? LANGS[lang][1][i] ?? LANGS.es[1][i] ?? key
     return s.replace(/\{(\w)\}/g, (_, v) => String(vars[v] ?? ''))
   }
 
@@ -329,9 +343,11 @@
   const hash = t => { let h = 2166136261; for (let i = 0; i < t.length; i++) h = Math.imul(h ^ t.charCodeAt(i), 16777619); return Math.abs(h) }
   const esc = t => String(t).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`)
   const px = (x, y, w, h, fill, extra = '') => `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${fill}"${extra}/>`
+  const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)')
 
   function desk(d) {
     const ti = themeOf(d.project), [fa, fb, rug] = THEMES[ti]
+    const floor = `floor-${esc(d.id)}`
     const seed = hash(d.id)
     const shirt = SHIRTS[hash(d.project) % SHIRTS.length]
     const hair = HAIRS[seed % HAIRS.length]
@@ -340,8 +356,8 @@
     const on = d.isRunning
     const o = []
     o.push(`<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" aria-hidden="true">`)
-    o.push(`<defs><pattern id="f${ti}" width="32" height="32" patternUnits="userSpaceOnUse"><rect width="32" height="32" fill="${fa}"/><rect width="16" height="16" fill="${fb}"/><rect x="16" y="16" width="16" height="16" fill="${fb}"/></pattern></defs>`)
-    o.push(px(0, 0, W, H, `url(#f${ti})`))
+    o.push(`<defs><pattern id="${floor}" width="32" height="32" patternUnits="userSpaceOnUse"><rect width="32" height="32" fill="${fa}"/><rect width="16" height="16" fill="${fb}"/><rect x="16" y="16" width="16" height="16" fill="${fb}"/></pattern></defs>`)
+    o.push(px(0, 0, W, H, `url(#${floor})`))
     o.push(px(12, 18, W - 24, 92, rug, ' rx="6"'))
     o.push(px(34, 44, 36, 34, '#4a4e69', ' rx="4"'))
     const cx = 38, cy = 30
@@ -368,7 +384,8 @@
     o.push(px(102, 62, 8, 4, '#22223b'))
     if (seed % 3 === 0) o.push(px(W - 26, 50, 10, 16, '#bc6c25'), px(W - 30, 38, 18, 14, '#40916c', ' rx="6"'))
     o.push('</svg>')
-    return o.join('')
+    const svg = o.join('')
+    return reducedMotion.matches ? svg.replace(/<animate(?:Transform)? [^>]*\/>/g, '') : svg
   }
 
   function ago(iso, short = false) {
@@ -395,7 +412,7 @@
   function paintBackground() {
     for (const d of [document, pipWin?.document].filter(Boolean)) {
       d.body.style.background = filter
-        ? `color-mix(in srgb, ${THEMES[themeOf(filter)][1]} 14%, #1c1d26)`
+        ? `color-mix(in srgb, ${THEMES[themeOf(filter)][1]} 12%, var(--bg))`
         : ''
     }
   }
@@ -403,6 +420,10 @@
   // ---------- estado ----------
   let current = { desks: [], updatedAt: 0 }
   let connected = false
+  let showOlder = false
+  const DAY = 24 * 60 * 60 * 1000
+  const titleOf = d => d.title || T('untitledCodex')
+  const providerOf = d => d.provider === 'codex' ? 'Codex' : 'Claude'
   let filter = store.get('filter', '')
   let confirming = null // { id, action }
   let pipWin = null
@@ -689,7 +710,7 @@
     for (const d of desks) {
       const before = wasRunning.get(d.id)
       if (before === true && !d.isRunning && !d.isSelf && notify) {
-        const text = T('finished', { t: d.title })
+        const text = T('finished', { t: titleOf(d) })
         chime()
         toast(text)
         if ('Notification' in window && Notification.permission === 'granted') {
@@ -718,10 +739,18 @@
 
   function render() {
     if (dragId) { renderLater = true; return }
-    const all = current.desks
+    const cutoff = Date.now() - DAY
+    const isOlder = d => !d.isRunning && Date.parse(d.lastActivityAt) <= cutoff
+    const recent = current.desks.filter(d => !isOlder(d))
+    const olderCount = current.desks.length - recent.length
+    const all = showOlder ? current.desks : recent
+    const older = el('older')
+    older.hidden = !olderCount
+    older.textContent = T(showOlder ? 'recent' : 'older', { n: olderCount })
+    older.setAttribute('aria-pressed', String(showOlder))
     const newChat = el('newchat')
     if (newChat) {
-      const label = T('newChat') + (all.some(d => d.provider === 'codex') ? ' · Claude' : '')
+      const label = T('newChat') + (current.desks.some(d => d.provider === 'codex') ? ' · Claude' : '')
       newChat.hidden = current.hasClaude === false
       newChat.title = label
       newChat.querySelector('span').textContent = label
@@ -730,7 +759,7 @@
     el('count').innerHTML = !connected
       ? esc(T('connecting'))
       : all.length
-        ? `<b>${esc(T('working', { n: working }))}</b> · ${esc(T('paused', { n: all.length - working }))}`
+        ? `<span class="live"><i class="dot" aria-hidden="true"></i>${esc(T('working', { n: working }))}</span><span>${esc(T('paused', { n: all.length - working }))}</span>`
         : esc(T('noData'))
 
     // filtros por proyecto
@@ -755,15 +784,15 @@
     // Buscador (aparece con muchas sesiones) y lista visible.
     const search = el('search')
     if (search) {
-      search.hidden = all.length <= 6 && !query
+      search.hidden = all.length <= 6 && !query.trim()
       search.placeholder = T('search')
       search.setAttribute('aria-label', T('search'))
     }
     const q = query.trim().toLowerCase()
     const desks = stableOrder(all)
       .filter(d => !filter || d.project === filter)
-      .filter(d => !q || `${d.title} ${d.project} ${d.group ?? ''} ${d.pr ?? ''}`.toLowerCase().includes(q))
-    markSeen(all)
+      .filter(d => !q || `${titleOf(d)} ${providerOf(d)} ${d.project} ${d.group ?? ''} ${d.pr ?? ''}`.toLowerCase().includes(q))
+    markSeen(current.desks)
 
     // Secciones: fijadas, luego cada grupo de la barra lateral, luego sin grupo.
     const sections = []
@@ -784,30 +813,31 @@
 
     const grid = el('grid')
     if (!desks.length) {
-      grid.innerHTML = current.hasClaude === false ? '' : `<div class="empty">${esc(T('waiting'))}</div>`
+      const message = !connected ? 'connecting' : q || filter ? 'noMatches' : 'emptyRecent'
+      grid.innerHTML = `<div class="empty">${esc(T(message))}</div>`
       return
     }
     const cardHtml = (d, zone) => {
-      const title = d.title
+      const title = titleOf(d)
       const managed = d.provider !== 'codex'
       const conf = confirming && confirming.id === d.id ? confirming.action : null
-      // Estado encima de la foto: «Trabajando» o cuánto lleva en pausa.
-      const stateText = d.isRunning ? T('stWorking') : d.lastActivityAt ? ago(d.lastActivityAt, true) : T('stPaused')
+      const stateText = d.isRunning ? T('stWorking') : T('stPaused')
+      const activityAge = Number.isFinite(Date.parse(d.lastActivityAt)) ? ago(d.lastActivityAt, true) : ''
       const menuOpen = menuFor === d.id
       const confirmBox = conf ? `<div class="confirm" data-stop>
           <p>${esc(T({ stop: 'confirmStop', archive: 'confirmArchive', delete: 'confirmDelete' }[conf], { t: d.title }))}</p>
           <div class="row"><button class="tool yes" type="button" data-yes="${conf}">${esc(T(conf))}</button><button class="tool" type="button" data-no aria-label="✕">✕</button></div>
         </div>` : ''
-      return `<div class="card ${menuOpen ? 'menu-open' : ''} ${d.isRunning ? 'working' : ''} ${d.link ? '' : 'nolink'} ${d.onScreen ? 'onscreen' : ''} ${d.focused ? 'focused' : ''}" data-id="${esc(d.id)}"
+      return `<div class="card ${managed ? 'managed' : ''} ${menuOpen ? 'menu-open' : ''} ${d.isRunning ? 'working' : ''} ${d.link ? '' : 'nolink'} ${d.onScreen ? 'onscreen' : ''} ${d.focused ? 'focused' : ''}" data-id="${esc(d.id)}"
           ${managed ? `data-zone="${esc(zone)}" draggable="true"` : ''}
           ${d.link ? 'role="button" tabindex="0"' : ''}>
-        <div class="pic" title="${esc(d.title)}">
+        <div class="pic" aria-hidden="true">
           ${desk(d)}
-          <span class="pill"><span class="dot"></span>${esc(stateText)}</span>
         </div>
-        <div class="info" title="${esc(d.title)}">
-          <div class="title">${d.focused || d.onScreen ? `<span class="badge">${esc(T('onScreen'))}</span>` : ''}${isUnread(d) ? `<span class="badge new">${esc(T('unread'))}</span>` : ''}${esc(title)}</div>
-          <div class="meta">${esc(d.project)}${d.pr ? ` · PR ${esc(d.pr)}` : ''}${d.group ? ` · ${esc(d.group)}` : ''}</div>
+        <div class="info" title="${esc(title)}">
+          <div class="title">${esc(title)}</div>
+          <div class="meta"><span class="provider">${providerOf(d)}</span>${d.project && d.project !== providerOf(d) ? ` · ${esc(d.project)}` : ''}${d.pr ? ` · PR ${esc(d.pr)}` : ''}</div>
+          <div class="state"><span class="dot" aria-hidden="true"></span>${esc(stateText)}${!d.isRunning && activityAge ? ` · ${esc(activityAge)}` : ''}${d.focused || d.onScreen ? `<span class="badge">${esc(T('onScreen'))}</span>` : ''}${isUnread(d) ? `<span class="badge new">${esc(T('unread'))}</span>` : ''}</div>
           ${doingHtml(d)}
         </div>
         ${managed ? `<button class="more" type="button" data-menu aria-haspopup="true" aria-expanded="${menuOpen}" title="${esc(T('more'))}" aria-label="${esc(T('more'))}">⋯</button>` : ''}
@@ -899,19 +929,23 @@
     return !d.isRunning && !d.focused && !d.onScreen && Boolean(d.lastActivityAt) && (seen[d.id] ?? '') < d.lastActivityAt
   }
 
-  // Orden estable: cada tarjeta conserva su sitio entre refrescos (antes se reordenaban al cambiar
-  // de estado o de actividad y la cuadrícula «bailaba»). Las que aparecen después entran arriba.
+  // Orden estable dentro de cada estado. Las tarjetas nuevas entran arriba.
   const deskOrder = new Map()
   let nextTop = 0
   function stableOrder(list) {
     const byActivity = [...list].sort((a, b) =>
       (Date.parse(a.lastActivityAt ?? 0) || 0) - (Date.parse(b.lastActivityAt ?? 0) || 0))
     for (const d of byActivity) if (!deskOrder.has(d.id)) deskOrder.set(d.id, --nextTop)
-    return [...list].sort((a, b) => deskOrder.get(a.id) - deskOrder.get(b.id))
+    return [...list].sort((a, b) => Number(Boolean(b.isRunning)) - Number(Boolean(a.isRunning)) || deskOrder.get(a.id) - deskOrder.get(b.id))
   }
 
   // ---------- controles ----------
   function setupControls(d) {
+    d.getElementById('older').onclick = () => {
+      showOlder = !showOlder
+      render()
+      fitWindow()
+    }
     const gear = d.getElementById('gear'), menu = d.getElementById('menu')
     if (gear && menu && !gear.dataset.ready) {
       gear.dataset.ready = '1'
@@ -1011,7 +1045,7 @@
     if (!IS_MINI || pipWin) return
     clearTimeout(fitTimer)
     fitTimer = setTimeout(async () => {
-      const key = `${current.desks.length}|${filter}|${window.innerWidth}|${store.get('folded', '0')}`
+      const key = `${el('grid').children.length}|${el('older').hidden}|${window.innerWidth}|${store.get('folded', '0')}`
       if (key === lastFit) return
       lastFit = key
       const chrome = window.outerHeight - window.innerHeight
@@ -1104,7 +1138,7 @@
     setTimeout(() => t.remove(), 30_000)
   }
   es.onerror = () => { connected = false; el('count').textContent = T('reconnecting') }
-  setInterval(render, 30_000)
+  setInterval(() => { render(); fitWindow() }, 30_000)
 </script>
 </body>
 </html>
