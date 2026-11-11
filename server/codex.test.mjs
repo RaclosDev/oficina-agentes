@@ -21,8 +21,9 @@ test('los hooks de Codex y las listas de Claude comparten la oficina', { timeout
     '{"id":',
   ].join('\n'))
   const script = fileURLToPath(new URL('./server.mjs', import.meta.url))
+  const envWithoutCodex = Object.fromEntries(Object.entries(process.env).filter(([key]) => key.toLowerCase() !== 'path'))
   const server = spawn(process.execPath, [script], {
-    env: { ...process.env, CODEX_HOME: codexHome, OFICINA_PORT: '0' },
+    env: { ...envWithoutCodex, PATH: '', CODEX_HOME: codexHome, OFICINA_PORT: '0' },
   })
   t.after(() => server.kill())
   const [startup] = await once(server.stdout, 'data')

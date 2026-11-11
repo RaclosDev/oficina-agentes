@@ -51,7 +51,7 @@ Abre Codex en la terminal, escribe `/hooks` y revisa y habilita los hooks de **o
 
 Si ya usabas la oficina con Claude, actualiza también su plugin y reinicia el proceso de Node que sirve la oficina para cargar la nueva versión. Ambos plugins comparten el puerto 3210.
 
-Las tarjetas de Codex aparecen al recibir actividad de un chat local y se retiran cuando Codex comunica su cierre. El historial, los grupos y las acciones de gestión descritas arriba corresponden a Claude.
+Al arrancar, la oficina carga hasta 50 chats locales sin archivar desde `codex` en el PATH. Los hooks actualizan el estado de los turnos en directo. Los grupos y las acciones de gestión descritas arriba corresponden a Claude.
 
 ## Uso
 
@@ -80,7 +80,7 @@ La primera vez que se carga, el plugin te avisa si faltan. Eliminar una sesión 
 
 Cada sesión de Claude con el plugin pide a la app la lista de sesiones cada 15 segundos y la envía a un servidor local sin dependencias (`server/server.mjs`), que solo escucha en `127.0.0.1:3210`. La página recibe los cambios al momento. Las acciones (detener, archivar, eliminar) que pides en la página las ejecuta una sesión de Claude a través de la app, con tus permisos de siempre. Abrir una sesión pasa su enlace `claude://` al sistema.
 
-Los hooks de Codex envían al mismo servidor el tipo de evento, los identificadores del chat y del turno y el nombre de la carpeta. El servidor conserva las tarjetas en memoria, lee los títulos del índice local de Codex (`session_index.jsonl`) y abre sus enlaces `codex://threads/…` en la app. Los mensajes y el historial de Codex se quedan en Codex.
+Los hooks de Codex envían al mismo servidor el tipo de evento, los identificadores del chat y del turno y el nombre de la carpeta. El servidor consulta los chats locales desde el servidor de aplicaciones de Codex y actualiza sus títulos con el índice local (`session_index.jsonl`). La página recibe solo los datos de las tarjetas y abre sus enlaces `codex://threads/…` en la app.
 
 El servidor solo acepta escrituras con una cabecera propia que una web ajena no puede enviar. Los datos de la oficina se quedan en tu ordenador.
 

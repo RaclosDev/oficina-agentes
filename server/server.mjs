@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { homedir } from 'node:os'
 import { applyCodexEvent, codexLink, isCodexEvent, isCodexId } from '../codex/session.mjs'
+import { listCodexDesks } from '../codex/threads.mjs'
 
 const HOST = '127.0.0.1'
 const PORT = Number(process.env.OFICINA_PORT ?? 3210)
@@ -22,6 +23,7 @@ let actions = []
 
 let claude = { desks: [], groups: [], available: false }
 const codex = new Map()
+let storedCodex = new Map()
 const codexIndex = join(process.env.CODEX_HOME || join(homedir(), '.codex'), 'session_index.jsonl')
 let codexTitles = new Map()
 let indexVersion
@@ -29,14 +31,29 @@ let updatedAt = 0
 const clients = new Set()
 
 function snapshot() {
+  const desks = new Map(storedCodex)
+  for (const [id, { desk }] of codex) {
+    const stored = desks.get(id)
+    desks.set(id, { ...desk, title: stored?.title ?? null })
+  }
   return {
-    desks: [...claude.desks, ...Array.from(codex.values(), ({ desk }) => ({
-      ...desk, title: codexTitles.get(desk.id) ?? null,
+    desks: [...claude.desks, ...Array.from(desks.values(), desk => ({
+      ...desk, title: codexTitles.get(desk.id) ?? desk.title,
     }))],
     groups: claude.groups,
     hasClaude: claude.available,
     updatedAt,
   }
+}
+
+async function refreshStoredCodex() {
+  const desks = await listCodexDesks()
+  if (!desks) return
+  const changed = desks.length !== storedCodex.size || desks.some(desk =>
+    JSON.stringify(desk) !== JSON.stringify(storedCodex.get(desk.id)))
+  if (!changed) return
+  storedCodex = new Map(desks.map(desk => [desk.id, desk]))
+  broadcast()
 }
 
 async function refreshCodexTitles() {
@@ -55,7 +72,7 @@ async function refreshCodexTitles() {
         // Codex puede estar escribiendo la última línea del índice.
       }
     }
-    const changed = [...codex.keys()].some(id => titles.get(id) !== codexTitles.get(id))
+    const changed = [...codex.keys(), ...storedCodex.keys()].some(id => titles.get(id) !== codexTitles.get(id))
     codexTitles = titles
     indexVersion = version
     if (changed) broadcast()
@@ -348,5 +365,7 @@ server.on('error', err => {
 })
 
 await refreshCodexTitles()
-setInterval(() => { if (codex.size) void refreshCodexTitles() }, 5_000).unref()
+void refreshStoredCodex()
+setInterval(() => { if (codex.size || storedCodex.size) void refreshCodexTitles() }, 5_000).unref()
+setInterval(refreshStoredCodex, 60_000).unref()
 server.listen(PORT, HOST, () => console.log(`[oficina] http://${HOST}:${server.address().port}`))
