@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { homedir } from 'node:os'
 import { applyCodexEvent, codexLink, isCodexEvent, isCodexId } from '../codex/session.mjs'
-import { listCodexDesks } from '../codex/threads.mjs'
+import { listCodexDesks, manageCodexThread } from '../codex/threads.mjs'
 
 const HOST = '127.0.0.1'
 const PORT = Number(process.env.OFICINA_PORT ?? 3210)
@@ -24,6 +24,9 @@ let actions = []
 let claude = { desks: [], groups: [], available: false }
 const codex = new Map()
 let storedCodex = new Map()
+const managingCodex = new Set()
+const removedCodex = new Set()
+let codexRevision = 0
 const codexIndex = join(process.env.CODEX_HOME || join(homedir(), '.codex'), 'session_index.jsonl')
 let codexTitles = new Map()
 let indexVersion
@@ -47,13 +50,41 @@ function snapshot() {
 }
 
 async function refreshStoredCodex() {
+  const revision = codexRevision
   const desks = await listCodexDesks()
-  if (!desks) return
+  if (!desks || revision !== codexRevision) return
+  for (const desk of desks) removedCodex.delete(desk.id)
   const changed = desks.length !== storedCodex.size || desks.some(desk =>
     JSON.stringify(desk) !== JSON.stringify(storedCodex.get(desk.id)))
   if (!changed) return
   storedCodex = new Map(desks.map(desk => [desk.id, desk]))
   broadcast()
+}
+
+function isCodexRunning(id) {
+  return codex.get(id)?.desk.isRunning ?? storedCodex.get(id)?.isRunning ?? false
+}
+
+async function handleCodexAction(res, sessionId, action) {
+  if (action !== 'archive' && action !== 'delete') return send(res, 400, '{"error":"bad action"}')
+  if (removedCodex.has(sessionId) || (!codex.has(sessionId) && !storedCodex.has(sessionId))) {
+    return send(res, 404, '{"error":"session not found"}')
+  }
+  if (managingCodex.has(sessionId) || isCodexRunning(sessionId)) return send(res, 409, '{"error":"session busy"}')
+  managingCodex.add(sessionId)
+  try {
+    const result = await manageCodexThread(sessionId, action, () => isCodexRunning(sessionId))
+    if (result === 'busy') return send(res, 409, '{"error":"session busy"}')
+    if (result !== 'ok') return send(res, 502, '{"error":"codex action failed"}')
+    codexRevision++
+    removedCodex.add(sessionId)
+    codex.delete(sessionId)
+    storedCodex.delete(sessionId)
+    broadcast()
+    return send(res, 204, '')
+  } finally {
+    managingCodex.delete(sessionId)
+  }
 }
 
 async function refreshCodexTitles() {
@@ -194,12 +225,11 @@ const server = createServer(async (req, res) => {
       return send(res, 400, '{"error":"bad json"}')
     }
     if (!isCodexEvent(event)) return send(res, 400, '{"error":"bad event"}')
-    if (applyCodexEvent(codex, event)) broadcast()
+    if (!removedCodex.has(event.id) && applyCodexEvent(codex, event)) broadcast()
     return send(res, 204, '')
   }
 
-  // Acciones sobre sesiones (archivar, detener): la página las encola y el mod,
-  // que es quien puede hablar con la app, las recoge y las ejecuta.
+  // Codex ejecuta la acción en el servidor local. Para Claude se encola en el mod.
   if (req.method === 'POST' && url.pathname === '/api/action') {
     if (req.headers['x-oficina'] !== '1') return send(res, 403, '{"error":"forbidden"}')
     let body = ''
@@ -214,8 +244,13 @@ const server = createServer(async (req, res) => {
       return send(res, 400, '{"error":"bad json"}')
     }
     const { action, sessionId } = parsed ?? {}
+    if (action === 'delete' && parsed.confirmed !== true) return send(res, 400, '{"error":"confirmation required"}')
+    if (isCodexId(sessionId)) return handleCodexAction(res, sessionId, action)
     if (!ACTIONS.has(action) || !SESSION_ID.test(String(sessionId))) {
       return send(res, 400, '{"error":"bad action"}')
+    }
+    if ((action === 'archive' || action === 'delete') && claude.desks.some(desk => desk.id === sessionId && desk.isRunning)) {
+      return send(res, 409, '{"error":"session busy"}')
     }
     // Datos extra según la acción: el nuevo título o el grupo de destino (null = sin grupo).
     const extra = {}

@@ -9,6 +9,7 @@ Claude Code y Codex comparten la ventana flotante, los filtros por proyecto y lo
 - **Chats activos y recientes** con su título, aplicación, proyecto, PR y tiempo en pausa. Busca por texto, filtra por aplicación o proyecto y marca la casilla para incluir chats en pausa durante al menos 24 horas.
 - **Ventana flotante siempre encima** (Windows): una ventana compacta que se ajusta al número de sesiones, se pliega con ▾ y crece al ensancharla. En otros sistemas usa el Picture-in-Picture del navegador.
 - **Un clic para ir al chat** en Claude o Codex.
+- **Archiva o elimina chats en pausa** desde su tarjeta en Claude o Codex. Los botones aparecen al pasar el ratón o al entrar con el teclado y están siempre visibles en pantallas táctiles. El borrado definitivo pide confirmación.
 - **Como una barra lateral**: marca la sesión que tienes abierta, pone «Nuevo» en las que han terminado desde la última vez que las viste, y agrupa por tus grupos de la barra lateral con las fijadas arriba.
 - **Qué está haciendo cada una**: «Editando archivos…», «Ejecutando comandos…» mientras trabaja, o la primera frase de su último mensaje cuando para.
 - **Todo lo de la barra lateral en el menú ⋯** de cada tarjeta: abrir, fijar, renombrar, mover a otro grupo, marcar como no leída, detener, archivar y eliminar (detener y eliminar con confirmación; eliminar pide además tu aprobación en la app).
@@ -51,7 +52,7 @@ Abre Codex en la terminal, escribe `/hooks` y revisa y habilita los hooks de **o
 
 Si ya usabas la oficina con Claude, actualiza también su plugin y reinicia el proceso de Node que sirve la oficina para cargar la nueva versión. Ambos plugins comparten el puerto 3210.
 
-Al arrancar, la oficina carga hasta 50 chats locales sin archivar desde `codex` en el PATH. Los hooks actualizan el estado de los turnos en directo. Los grupos y las acciones de gestión descritas arriba corresponden a Claude.
+Al arrancar, la oficina carga hasta 50 chats locales sin archivar desde `codex` en el PATH. Los hooks actualizan el estado de los turnos en directo. Los grupos y el menú ⋯ corresponden a Claude. Archivar y eliminar en Codex requiere una versión de `codex` que admita ambas acciones en su servidor de aplicaciones.
 
 ## Uso
 

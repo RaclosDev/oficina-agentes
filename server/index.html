@@ -157,6 +157,10 @@
     font-weight: 720; line-height: 1.23; overflow-wrap: anywhere; overflow: hidden;
     display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
   }
+  button.title {
+    font-family: inherit; font-size: inherit; color: inherit; text-align: start;
+    border: 0; padding: 0; background: transparent; cursor: pointer;
+  }
   .meta { color: var(--dim); font-size: 0.75rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .provider { font-weight: 700; color: var(--ink); }
   .state { color: var(--dim); font-size: 0.75rem; display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
@@ -164,12 +168,19 @@
   .working .dot { background: var(--work); }
   .working .state { color: var(--work); }
   .actions { display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap; }
-  .act {
-    font: inherit; font-size: 11px; line-height: 1;
-    display: inline-flex; align-items: center; gap: 4px;
-    color: var(--dim); background: transparent;
-    border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; cursor: pointer;
+  @media (hover: hover) and (pointer: fine) {
+    .actions { opacity: 0; pointer-events: none; }
+    .card:hover .actions, .card:focus-within .actions { opacity: 1; pointer-events: auto; }
   }
+  .act {
+    font: inherit; font-size: 0.75rem; line-height: 1.2; min-height: 30px;
+    color: var(--ink); background: var(--panel);
+    border: 1px solid var(--control); border-radius: 6px; padding: 4px 8px; cursor: pointer;
+  }
+  @media (pointer: coarse) {
+    .act, .confirm .tool { min-height: 44px; }
+  }
+  button.title:focus-visible, .act:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
   .act:not(:disabled):hover { border-color: var(--accent); color: var(--ink); }
   .act.delete:not(:disabled):hover { border-color: var(--danger); color: var(--danger); }
   .act:disabled { opacity: 0.35; cursor: not-allowed; }
@@ -179,10 +190,10 @@
     position: absolute; inset: 0; z-index: 3; border-radius: inherit;
     background: var(--bg);
     display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 10px;
-    padding: 12px; text-align: center;
+    padding: 8px; text-align: center; overflow: auto; justify-content: safe center;
   }
   .confirm p { margin: 0; overflow-wrap: anywhere; }
-  .confirm .row { display: flex; gap: 8px; }
+  .confirm .row { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
   .confirm .yes { border-color: var(--danger); color: var(--danger); }
   .empty { color: var(--dim); padding: 32px 12px; text-align: center; grid-column: 1 / -1; border: 1px dashed var(--control); border-radius: 12px; }
   #toasts { position: fixed; bottom: 12px; inset-inline-start: 50%; transform: translateX(-50%); display: grid; gap: 6px; z-index: 5; width: min(90vw, 420px); }
@@ -217,7 +228,6 @@
   .compact .card { grid-template-columns: 65px minmax(0, 1fr); gap: 8px; min-height: 72px; padding-block: 6px; }
   .compact .card .title { font-size: 0.8125rem; }
   .compact .actions { margin-top: 3px; }
-  .compact .act span { display: none; }
   .compact .confirm { flex-direction: row; justify-content: space-between; padding: 6px 8px; font-size: 12px; text-align: start; }
   @media (max-width: 440px) {
     .filters .search { flex-basis: 100%; }
@@ -324,6 +334,12 @@
   const OFFICE_TEXT = {
     es: { older: 'Incluir anteriores a 24 h ({n})', emptyRecent: 'No hay chats activos ni recientes.', noMatches: 'Ningún chat coincide con los filtros.', untitledCodex: 'Chat de Codex', settingsLabel: 'Ajustes', allProviders: 'Todas las apps', providerLabel: 'Aplicación', allProjects: 'Todos los proyectos', noProject: 'Sin proyecto', projectLabel: 'Proyecto', resetFilters: 'Limpiar filtros', noResults: '0 chats' },
     en: { older: 'Include chats older than 24 h ({n})', emptyRecent: 'No active or recent chats.', noMatches: 'No chats match the filters.', untitledCodex: 'Codex chat', settingsLabel: 'Settings', allProviders: 'All apps', providerLabel: 'App', allProjects: 'All projects', noProject: 'No project', projectLabel: 'Project', resetFilters: 'Clear filters', noResults: '0 chats' },
+  }
+  const CANCEL = {
+    es: 'Cancelar', en: 'Cancel', zh: '取消', hi: 'रद्द करें', fr: 'Annuler', ar: 'إلغاء',
+    bn: 'বাতিল', pt: 'Cancelar', ru: 'Отмена', ur: 'منسوخ کریں', id: 'Batal', de: 'Abbrechen',
+    ja: 'キャンセル', mr: 'रद्द करा', te: 'రద్దు చేయి', tr: 'İptal', ta: 'ரத்துசெய்',
+    vi: 'Hủy', ko: '취소', it: 'Annulla',
   }
   const T = (key, vars = {}) => {
     const i = KEYS.indexOf(key)
@@ -436,7 +452,8 @@
   let filter = ''
   let providerFilter = ''
   let query = ''
-  let confirming = null // { id, action }
+  let confirming = null
+  const pendingActions = new Set()
   let pipWin = null
   const wasRunning = new Map()
   const doc = () => pipWin?.document ?? document
@@ -586,10 +603,8 @@
 
   async function menuAction(mi, d, target, card) {
     if (mi === 'open') { if (d.link) { markRead(d); void openSession(d.link, card.ownerDocument) } return render() }
-    // Archivar se deshace desde la app; detener y eliminar piden confirmación.
-    if (mi === 'archive') return runAction('archive', d)
-    // El foco va a ✕ (la opción segura): un Enter de más no elimina nada.
-    if (mi === 'stop' || mi === 'delete') { confirming = { id: d.id, action: mi }; render(); return focusIn(d.id, '[data-no]') }
+    if (mi === 'archive') return runAction('archive', d, '[data-menu]')
+    if (mi === 'stop' || mi === 'delete') return confirmAction(d.id, mi, '[data-menu]')
     if (mi === 'rename') {
       render()
       const win = card.ownerDocument.defaultView ?? window
@@ -608,20 +623,33 @@
   }
 
   // Lleva el foco a un control de una tarjeta (tras repintar, la cuadrícula es nueva).
-  // sel '' = la propia tarjeta; si el control ya no está, al botón ⋯.
   function focusIn(id, sel) {
     const card = [...(el('grid')?.querySelectorAll('.card') ?? [])].find(c => c.dataset.id === id)
     if (!card) return
-    const t = sel === '' ? card : card.querySelector(sel) ?? card.querySelector('[data-menu]')
+    const preferred = card.querySelector(sel)
+    const t = preferred?.matches(':enabled') ? preferred
+      : card.querySelector('[data-open]:enabled, [data-menu]:enabled, [data-act]:enabled, [data-no]')
     t?.focus({ preventScroll: true })
   }
   function focusSel(n) {
-    if (n.classList.contains('card')) return ''
     if (n.dataset.mi) return `[data-mi="${n.dataset.mi}"]` + (n.dataset.group !== undefined ? `[data-group="${CSS.escape(n.dataset.group)}"]` : '')
+    if (n.dataset.act) return `[data-act="${n.dataset.act}"]`
+    if ('open' in n.dataset) return '[data-open]'
     if ('menu' in n.dataset) return '[data-menu]'
     if (n.dataset.yes) return '[data-yes]'
     if ('no' in n.dataset) return '[data-no]'
     return '[data-menu]'
+  }
+  function confirmAction(id, action, returnTo) {
+    confirming = { id, action, returnTo }
+    render()
+    focusIn(id, '[data-no]')
+  }
+  function cancelConfirmation() {
+    const { id, returnTo } = confirming
+    confirming = null
+    render()
+    focusIn(id, returnTo)
   }
   function closeMenu(refocus) {
     const id = menuFor
@@ -672,7 +700,7 @@
     d.addEventListener('keydown', ev => {
       if (ev.key === 'Escape') {
         if (menuFor) { ev.preventDefault(); closeMenu(true) }
-        else if (confirming) { const id = confirming.id; confirming = null; render(); focusIn(id, '[data-menu]') }
+        else if (confirming) { ev.preventDefault(); cancelConfirmation() }
         return
       }
       const dd = menuFor && ev.target.closest?.('.dropdown')
@@ -686,15 +714,25 @@
     d.defaultView?.addEventListener('resize', placeMenu)
   }
 
-  async function runAction(action, d) {
+  async function runAction(action, d, returnTo, confirmed = false) {
+    if (pendingActions.has(d.id)) return
     confirming = null
+    pendingActions.add(d.id)
+    render()
     try {
-      // Sin aviso al enviar: el resultado llega por el evento «result».
-      if (!(await post('/api/action', { action, sessionId: d.id }))) toast(T('failed'), true)
+      if (!(await post('/api/action', { action, sessionId: d.id, confirmed }))) toast(T('failed'), true)
+      else if (d.provider === 'codex') toast(action === 'archive' ? T('archived', { t: titleOf(d) }) : T('done'))
     } catch {
       toast(T('failed'), true)
+    } finally {
+      pendingActions.delete(d.id)
+      const active = doc().activeElement
+      render()
+      if (active === doc().body || active?.closest('.card')?.dataset.id === d.id) {
+        focusIn(d.id, returnTo)
+        if (doc().activeElement === doc().body) el('search')?.focus({ preventScroll: true })
+      }
     }
-    render()
   }
 
   // ---------- avisos ----------
@@ -828,26 +866,30 @@
       const title = titleOf(d)
       const managed = d.provider !== 'codex'
       const conf = confirming && confirming.id === d.id ? confirming.action : null
+      const blocked = d.isRunning || pendingActions.has(d.id)
       const stateText = d.isRunning ? T('stWorking') : T('stPaused')
       const activityAge = Number.isFinite(Date.parse(d.lastActivityAt)) ? ago(d.lastActivityAt, true) : ''
       const menuOpen = menuFor === d.id
       const confirmBox = conf ? `<div class="confirm" data-stop>
-          <p>${esc(T({ stop: 'confirmStop', archive: 'confirmArchive', delete: 'confirmDelete' }[conf], { t: d.title }))}</p>
-          <div class="row"><button class="tool yes" type="button" data-yes="${conf}">${esc(T(conf))}</button><button class="tool" type="button" data-no aria-label="✕">✕</button></div>
+          <p id="confirm-message">${esc(T(conf === 'stop' ? 'confirmStop' : 'confirmDelete', { t: title }))}</p>
+          <div class="row"><button class="tool" type="button" data-no aria-describedby="confirm-message">${esc(CANCEL[lang] ?? CANCEL.en)}</button><button class="tool yes" type="button" data-yes="${conf}" aria-describedby="confirm-message" ${conf === 'delete' && blocked ? 'disabled' : ''}>${esc(T(conf))}</button></div>
         </div>` : ''
       return `<div class="card ${managed ? 'managed' : ''} ${menuOpen ? 'menu-open' : ''} ${d.isRunning ? 'working' : ''} ${d.link ? '' : 'nolink'} ${d.onScreen ? 'onscreen' : ''} ${d.focused ? 'focused' : ''}" data-id="${esc(d.id)}"
-          ${managed ? `data-zone="${esc(zone)}" draggable="true"` : ''}
-          ${d.link ? 'role="button" tabindex="0"' : ''}>
+          ${managed ? `data-zone="${esc(zone)}" draggable="${!conf}"` : ''}>
         <div class="pic" aria-hidden="true">
           ${desk(d)}
         </div>
-        <div class="info" title="${esc(title)}">
-          <div class="title">${esc(title)}</div>
+        <div class="info" ${conf ? 'inert' : ''}>
+          ${d.link ? `<button class="title" type="button" data-open title="${esc(title)}">${esc(title)}</button>` : `<div class="title" title="${esc(title)}">${esc(title)}</div>`}
           <div class="meta"><span class="provider">${providerOf(d)}</span>${d.project !== providerOf(d) ? ` · ${esc(projectName(d.project))}` : ''}${d.pr ? ` · PR ${esc(d.pr)}` : ''}</div>
           <div class="state"><span class="dot" aria-hidden="true"></span>${esc(stateText)}${!d.isRunning && activityAge ? ` · ${esc(activityAge)}` : ''}${d.focused || d.onScreen ? `<span class="badge">${esc(T('onScreen'))}</span>` : ''}${isUnread(d) ? `<span class="badge new">${esc(T('unread'))}</span>` : ''}</div>
           ${doingHtml(d)}
+          <div class="actions">
+            <button class="act" type="button" data-act="archive" ${blocked ? 'disabled' : ''}>${esc(T('archive'))}</button>
+            <button class="act delete" type="button" data-act="delete" ${blocked ? 'disabled' : ''}>${esc(T('delete'))}</button>
+          </div>
         </div>
-        ${managed ? `<button class="more" type="button" data-menu aria-haspopup="true" aria-expanded="${menuOpen}" title="${esc(T('more'))}" aria-label="${esc(T('more'))}">⋯</button>` : ''}
+        ${managed && !conf ? `<button class="more" type="button" data-menu aria-haspopup="true" aria-expanded="${menuOpen}" title="${esc(T('more'))}" aria-label="${esc(T('more'))}">⋯</button>` : ''}
         ${menuOpen ? menuHtml(d) : ''}
         ${confirmBox}
       </div>`
@@ -869,7 +911,7 @@
     grid.querySelectorAll('.card').forEach(card => {
       const d = desks.find(x => x.id === card.dataset.id)
       if (!d) return
-      const open = () => { if (d.link) { markRead(d); void openSession(d.link, card.ownerDocument) } }
+      const open = () => { if (d.link && confirming?.id !== d.id) { markRead(d); void openSession(d.link, card.ownerDocument) } }
       card.addEventListener('click', ev => {
         const t = ev.target.closest('button, [data-stop]')
         if (!t) return open()
@@ -883,12 +925,11 @@
           return focusIn(d.id, menuFor ? '.mi:not(:disabled)' : '[data-menu]')
         }
         if (t.dataset.mi) { menuFor = null; return void menuAction(t.dataset.mi, d, t, card) }
-        if (t.dataset.act) { confirming = { id: d.id, action: t.dataset.act }; render(); focusIn(d.id, '[data-no]') }
-        else if (t.dataset.yes) void runAction(t.dataset.yes, d)
-        else if ('no' in t.dataset) { confirming = null; render(); focusIn(d.id, '[data-menu]') }
-      })
-      card.addEventListener('keydown', ev => {
-        if (ev.target === card && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); open() }
+        if ('open' in t.dataset) return open()
+        if (t.dataset.act === 'archive') return void runAction('archive', d, '[data-act="archive"]')
+        if (t.dataset.act === 'delete') return confirmAction(d.id, 'delete', '[data-act="delete"]')
+        if (t.dataset.yes) return void runAction(t.dataset.yes, d, confirming.returnTo, true)
+        if ('no' in t.dataset) cancelConfirmation()
       })
     })
   }
