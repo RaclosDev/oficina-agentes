@@ -6,10 +6,23 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { test } from 'node:test'
+import { projectOfThread } from '../codex/projects.mjs'
 
 const id = '11111111-1111-1111-1111-111111111111'
 const turnId = '22222222-2222-2222-2222-222222222222'
 const claudeDesk = { id: `local_${id}`, title: 'Chat de Claude', isRunning: false }
+
+test('los chats de Codex usan el proyecto registrado y agrupan las carpetas temporales', () => {
+  const projects = [
+    { id, name: 'Proyecto principal', roots: [{ path: 'C:\\code\\repo' }] },
+    { id: turnId, name: 'Proyecto secundario', roots: [{ path: 'C:\\code\\repo\\apps\\web' }] },
+  ]
+  const scratch = 'C:\\Users\\demo\\Documents\\Codex\\2026-11-11\\te'
+  assert.equal(projectOfThread({ cwd: scratch }, projects), '')
+  assert.equal(projectOfThread({ cwd: scratch, projectId: id }, projects), 'Proyecto principal')
+  assert.equal(projectOfThread({ cwd: 'C:\\CODE\\repo\\apps\\web\\src' }, projects), 'Proyecto secundario')
+  assert.equal(projectOfThread({ cwd: 'C:\\code\\repo-antiguo' }, projects), 'repo-antiguo')
+})
 
 test('los hooks de Codex y las listas de Claude comparten la oficina', { timeout: 10_000 }, async t => {
   const codexHome = await mkdtemp(join(tmpdir(), 'oficina-codex-'))
@@ -38,14 +51,14 @@ test('los hooks de Codex y las listas de Claude comparten la oficina', { timeout
     })
   }
 
-  async function hook(name, turn = turnId) {
+  async function hook(name, turn = turnId, cwd = 'C:\\code\\mi proyecto') {
     const hookScript = fileURLToPath(new URL('../codex/report.mjs', import.meta.url))
     const child = spawn(process.execPath, [hookScript], { env })
     child.stdin.end(JSON.stringify({
       hook_event_name: name,
       session_id: id,
       turn_id: turn,
-      cwd: 'C:\\code\\mi proyecto',
+      cwd,
       prompt: 'Contenido que no debe llegar a la oficina',
     }))
     const [code] = await once(child, 'close')
@@ -79,6 +92,9 @@ test('los hooks de Codex y las listas de Claude comparten la oficina', { timeout
   assert.equal((await snapshot()).desks[1].isRunning, false)
   await hook('SessionEnd')
   assert.deepEqual((await snapshot()).desks, [claudeDesk])
+  await hook('SessionStart', turnId, 'C:\\Users\\demo\\Documents\\Codex\\2026-11-11\\te')
+  assert.equal((await snapshot()).desks[1].project, '')
+  await hook('SessionEnd')
   assert.equal((await post('/api/codex/event', { name: 'SessionStart', id: turnId, project: '' })).status, 204)
   assert.equal((await snapshot()).desks[1].title, null)
 

@@ -1,4 +1,4 @@
-import { posix, win32 } from 'node:path'
+import { projectFromCwd } from './projects.mjs'
 
 const EVENTS = new Set(['SessionStart', 'UserPromptSubmit', 'Stop', 'Interrupt', 'SessionEnd'])
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
@@ -15,11 +15,10 @@ export function isCodexEvent(event) {
 
 export function codexEvent(input) {
   const cwd = typeof input?.cwd === 'string' ? input.cwd : ''
-  const path = /^[A-Za-z]:|^\\\\/.test(cwd) ? win32 : posix
   const event = {
     name: input?.hook_event_name,
     id: input?.session_id,
-    project: path.basename(cwd).slice(0, 120),
+    project: projectFromCwd(cwd),
     turnId: isCodexId(input?.turn_id) ? input.turn_id : undefined,
   }
   return isCodexEvent(event) ? event : null
@@ -43,7 +42,7 @@ export function applyCodexEvent(sessions, event) {
     id,
     provider: 'codex',
     title: `Codex · ${id.slice(-6)}`,
-    project: project || previous?.desk.project || 'Codex',
+    project,
     link: codexLink(id),
     isRunning: running,
     lastActivityAt: new Date().toISOString(),

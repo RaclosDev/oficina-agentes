@@ -34,7 +34,7 @@ function snapshot() {
   const desks = new Map(storedCodex)
   for (const [id, { desk }] of codex) {
     const stored = desks.get(id)
-    desks.set(id, { ...desk, title: stored?.title ?? null })
+    desks.set(id, { ...desk, title: stored?.title ?? null, project: stored?.project ?? desk.project })
   }
   return {
     desks: [...claude.desks, ...Array.from(desks.values(), desk => ({

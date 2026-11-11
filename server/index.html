@@ -322,8 +322,8 @@
   let lang = store.get('lang', '') || guessLang()
   if (!LANGS[lang]) lang = 'es'
   const OFFICE_TEXT = {
-    es: { older: 'Incluir anteriores a 24 h ({n})', emptyRecent: 'No hay chats activos ni recientes.', noMatches: 'Ningún chat coincide con los filtros.', untitledCodex: 'Chat de Codex', settingsLabel: 'Ajustes', allProviders: 'Todas las apps', providerLabel: 'Aplicación', allProjects: 'Todos los proyectos', projectLabel: 'Proyecto', resetFilters: 'Limpiar filtros', noResults: '0 chats' },
-    en: { older: 'Include chats older than 24 h ({n})', emptyRecent: 'No active or recent chats.', noMatches: 'No chats match the filters.', untitledCodex: 'Codex chat', settingsLabel: 'Settings', allProviders: 'All apps', providerLabel: 'App', allProjects: 'All projects', projectLabel: 'Project', resetFilters: 'Clear filters', noResults: '0 chats' },
+    es: { older: 'Incluir anteriores a 24 h ({n})', emptyRecent: 'No hay chats activos ni recientes.', noMatches: 'Ningún chat coincide con los filtros.', untitledCodex: 'Chat de Codex', settingsLabel: 'Ajustes', allProviders: 'Todas las apps', providerLabel: 'Aplicación', allProjects: 'Todos los proyectos', noProject: 'Sin proyecto', projectLabel: 'Proyecto', resetFilters: 'Limpiar filtros', noResults: '0 chats' },
+    en: { older: 'Include chats older than 24 h ({n})', emptyRecent: 'No active or recent chats.', noMatches: 'No chats match the filters.', untitledCodex: 'Codex chat', settingsLabel: 'Settings', allProviders: 'All apps', providerLabel: 'App', allProjects: 'All projects', noProject: 'No project', projectLabel: 'Project', resetFilters: 'Clear filters', noResults: '0 chats' },
   }
   const T = (key, vars = {}) => {
     const i = KEYS.indexOf(key)
@@ -353,10 +353,11 @@
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)')
 
   function desk(d) {
-    const ti = themeOf(d.project), [fa, fb, rug] = THEMES[ti]
+    const project = d.project || ''
+    const ti = themeOf(project), [fa, fb, rug] = THEMES[ti]
     const floor = `floor-${esc(d.id)}`
     const seed = hash(d.id)
-    const shirt = SHIRTS[hash(d.project) % SHIRTS.length]
+    const shirt = SHIRTS[hash(project) % SHIRTS.length]
     const hair = HAIRS[seed % HAIRS.length]
     const skin = SKINS[(seed >> 3) % SKINS.length]
     const delay = ((seed % 7) / 10).toFixed(1)
@@ -419,7 +420,7 @@
   function paintBackground() {
     for (const d of [document, pipWin?.document].filter(Boolean)) {
       d.body.style.background = filter
-        ? `color-mix(in srgb, ${THEMES[themeOf(filter)][1]} 12%, var(--bg))`
+        ? `color-mix(in srgb, ${THEMES[themeOf(filter.slice(1))][1]} 12%, var(--bg))`
         : ''
     }
   }
@@ -431,6 +432,7 @@
   const DAY = 24 * 60 * 60 * 1000
   const titleOf = d => d.title || T('untitledCodex')
   const providerOf = d => d.provider === 'codex' ? 'Codex' : 'Claude'
+  const projectName = project => project || T('noProject')
   let filter = ''
   let providerFilter = ''
   let query = ''
@@ -750,10 +752,15 @@
     if (dragId) { renderLater = true; return }
     const normalize = text => text.toLowerCase().normalize('NFD').replace(/\p{M}/gu, '')
     const terms = normalize(query.trim()).split(/\s+/).filter(Boolean)
-    const matches = stableOrder(current.desks).filter(d => {
-      if (providerFilter && providerFilter !== (d.provider || 'claude')) return false
-      if (filter && d.project !== filter) return false
-      const text = normalize(`${titleOf(d)} ${providerOf(d)} ${d.project ?? ''} ${d.group ?? ''} ${d.pr ?? ''}`)
+    const providerDesks = current.desks.filter(d => !providerFilter || providerFilter === (d.provider || 'claude'))
+    const projects = [...new Set(providerDesks.map(d => d.project || ''))]
+      .sort((a, b) => projectName(a).localeCompare(projectName(b), lang))
+    const options = [['', T('allProjects')], ...projects.map(name => ['p' + name, projectName(name)])]
+    if (filter && !options.some(([value]) => value === filter)) filter = ''
+    const matches = stableOrder(providerDesks).filter(d => {
+      const project = d.project || ''
+      if (filter && project !== filter.slice(1)) return false
+      const text = normalize(`${titleOf(d)} ${providerOf(d)} ${projectName(project)} ${d.group ?? ''} ${d.pr ?? ''}`)
       return terms.every(term => text.includes(term))
     })
     const cutoff = Date.now() - DAY
@@ -778,10 +785,7 @@
         ? `<span class="live"><i class="dot" aria-hidden="true"></i>${esc(T('working', { n: working }))}</span><span>${esc(T('paused', { n: desks.length - working }))}</span>`
         : esc(T('noResults'))
 
-    const projects = [...new Set([filter, ...current.desks.map(d => d.project)].filter(Boolean))]
-      .sort((a, b) => a.localeCompare(b, lang))
     const project = el('project')
-    const options = [['', T('allProjects')], ...projects.map(name => [name, name])]
     const optionKey = JSON.stringify(options)
     if (project.dataset.options !== optionKey) {
       project.innerHTML = options.map(([value, label]) => `<option value="${esc(value)}">${esc(label)}</option>`).join('')
@@ -839,7 +843,7 @@
         </div>
         <div class="info" title="${esc(title)}">
           <div class="title">${esc(title)}</div>
-          <div class="meta"><span class="provider">${providerOf(d)}</span>${d.project && d.project !== providerOf(d) ? ` · ${esc(d.project)}` : ''}${d.pr ? ` · PR ${esc(d.pr)}` : ''}</div>
+          <div class="meta"><span class="provider">${providerOf(d)}</span>${d.project !== providerOf(d) ? ` · ${esc(projectName(d.project))}` : ''}${d.pr ? ` · PR ${esc(d.pr)}` : ''}</div>
           <div class="state"><span class="dot" aria-hidden="true"></span>${esc(stateText)}${!d.isRunning && activityAge ? ` · ${esc(activityAge)}` : ''}${d.focused || d.onScreen ? `<span class="badge">${esc(T('onScreen'))}</span>` : ''}${isUnread(d) ? `<span class="badge new">${esc(T('unread'))}</span>` : ''}</div>
           ${doingHtml(d)}
         </div>
@@ -956,7 +960,7 @@
       updateFilters()
       search.focus()
     }
-    d.getElementById('decoration').onclick = () => { cycleTheme(filter); render(); fitWindow() }
+    d.getElementById('decoration').onclick = () => { cycleTheme(filter.slice(1)); render(); fitWindow() }
     const gear = d.getElementById('gear'), menu = d.getElementById('menu')
     if (gear && menu && !gear.dataset.ready) {
       gear.dataset.ready = '1'
