@@ -1,0 +1,10 @@
+{
+  "name": "oficina-agentes",
+  "version": "0.1.0",
+  "description": "Muestra la actividad de Codex en la oficina pixel local.",
+  "author": { "name": "RaclosDev", "url": "https://github.com/RaclosDev" },
+  "homepage": "https://github.com/RaclosDev/oficina-agentes",
+  "repository": "https://github.com/RaclosDev/oficina-agentes",
+  "license": "MIT",
+  "hooks": "./codex/hooks.json"
+}

@@ -4,101 +4,125 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Oficina</title>
+<script>
+  try {
+    const mode = localStorage.getItem('oficina.appearance') || 'system';
+    document.documentElement.dataset.appearance = mode === 'dark' || (mode !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+  } catch {}
+</script>
 <style id="oficina-style">
   :root {
-    --bg: #1c1d26;
-    --panel: #262836;
-    --line: #3a3d50;
-    --ink: #f2efe9;
-    --dim: #a3a7b8;
-    --work: #5fd38d;
-    --rest: #8d93a8;
-    --accent: #f3a712;
-    --danger: #ff7a6b;
+    color-scheme: light;
+    --bg: #f4f1eb;
+    --panel: #fffdf9;
+    --hover: #fff9ef;
+    --line: #ded7ca;
+    --ink: #29251f;
+    --dim: #665e52;
+    --work: #176244;
+    --rest: #817462;
+    --accent: #9b452d;
+    --danger: #a22d25;
+    --control: #8a7c69;
+  }
+  :root[data-appearance="dark"] {
+    color-scheme: dark;
+    --bg: #1c1b19; --panel: #272521; --hover: #302c26;
+    --line: #504a40; --ink: #f3ede3; --dim: #bbb1a3;
+    --work: #91d2ae; --rest: #b8a98f; --accent: #efb093;
+    --danger: #ffaaa1; --control: #8e8271;
   }
   * { box-sizing: border-box; }
   body {
     margin: 0;
     background: var(--bg);
     color: var(--ink);
-    font: 14px/1.35 ui-monospace, 'Cascadia Mono', Consolas, monospace;
+    font: 0.9375rem/1.45 'Instrument Sans', 'Segoe UI', sans-serif;
   }
-  #app { padding: 14px; }
-  header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
-  header h1 { font-size: 16px; margin: 0 auto 0 0; }
-  .count { color: var(--dim); }
-  .count b { color: var(--work); }
+  #app { max-width: 1260px; margin-inline: auto; padding: clamp(16px, 4vw, 54px); }
+  header {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+    padding-bottom: 22px; margin-bottom: 20px; border-bottom: 1px solid var(--line);
+  }
+  .heading { display: flex; align-items: center; gap: 14px; min-width: 0; }
+  .mark { width: 44px; height: 44px; border-radius: 8px; background: var(--ink); display: grid; place-items: center; flex: none; }
+  .mark::before {
+    content: ''; width: 6px; height: 6px; margin: 0 9px 9px 0; background: #f7dab9;
+    box-shadow: 9px 0 #f7dab9, 0 9px #f7dab9, 9px 9px #cd8263;
+  }
+  header h1 { font-size: clamp(1.5rem, 4vw, 2.25rem); letter-spacing: -0.045em; line-height: 1.05; margin: 0 0 4px; }
+  .count { color: var(--dim); font-size: 0.8125rem; display: flex; gap: 12px; flex-wrap: wrap; }
+  .count span { display: inline-flex; gap: 6px; align-items: center; }
+  .count .live { color: var(--work); font-weight: 650; }
+  .count .live .dot { background: var(--work); }
   .tool, select.tool {
     font: inherit;
     color: var(--ink);
     background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 5px 10px;
+    border: 1px solid var(--control);
+    border-radius: 7px;
+    min-height: 36px;
+    padding: 5px 12px;
     cursor: pointer;
   }
-  .tool:hover { border-color: var(--accent); }
+  .tool:hover { border-color: var(--accent); color: var(--accent); }
+  #pip { color: var(--panel); background: var(--ink); border-color: var(--ink); }
+  #pip:hover { background: var(--accent); border-color: var(--accent); }
   .toggle { display: inline-flex; align-items: center; gap: 6px; color: var(--dim); cursor: pointer; font-size: 12px; }
   :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
-  .chip {
-    font: inherit; font-size: 12px; color: var(--dim);
-    background: transparent; border: 1px solid var(--line); border-radius: 999px;
-    padding: 3px 10px; cursor: pointer;
-    max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
-  .chip[aria-pressed='true'] { color: var(--bg); background: var(--accent); border-color: var(--accent); }
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(190px, 100%), 1fr)); gap: 12px; }
+  .filters { display: grid; gap: 8px; margin-bottom: 18px; }
+  .filter-fields, .filter-options { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+  .filter-fields .tool { min-height: 36px; font-size: 0.8125rem; }
+  .filter-fields select { max-width: 100%; }
+  #project { flex: 1 1 150px; min-width: 0; }
+  .filter-options .toggle { min-height: 32px; font-size: 0.8125rem; }
+  .filter-options input { accent-color: var(--accent); }
+  .reset-filters { background: none; border: 0; color: var(--accent); cursor: pointer; padding: 6px; font: inherit; font-size: 0.8125rem; }
+  .reset-filters:hover { text-decoration: underline; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(290px, 100%), 1fr)); gap: 12px; align-items: stretch; }
   .card {
     position: relative;
-    display: flex; flex-direction: column;
+    display: grid; grid-template-columns: 88px minmax(0, 1fr); align-items: center; gap: 12px;
+    min-width: 0; min-height: 91px; padding: 10px;
     background: var(--panel);
     border: 1px solid var(--line);
-    border-radius: 10px;
+    border-radius: 12px;
     cursor: pointer;
-    transition: transform 0.12s ease, border-color 0.12s ease;
+    transition: border-color 0.12s ease, background 0.12s ease;
   }
-  .card:hover { transform: translateY(-2px); border-color: var(--accent); }
+  .card:hover { border-color: var(--accent); background: var(--hover); }
+  .card.working { border-inline-start: 3px solid var(--work); padding-inline-start: 8px; }
   .card.nolink { cursor: default; }
   .card.onscreen { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
   .card.focused { outline: 2px solid var(--accent); outline-offset: -2px; }
   .badge {
-    display: inline-block; margin-inline-end: 6px; padding: 1px 6px; vertical-align: 1px;
-    font-size: 10px; font-weight: 700; border-radius: 999px; color: var(--bg); background: var(--accent);
+    display: inline-block; padding: 1px 5px;
+    font-size: 0.625rem; font-weight: 700; border-radius: 4px; color: var(--panel); background: var(--accent);
   }
   .badge.new { background: var(--work); }
   .doing {
-    font-size: 12px; color: var(--ink); opacity: 0.85;
+    font-size: 0.75rem; color: var(--dim);
     overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
   }
   .doing.busy { color: var(--work); opacity: 1; }
   .section {
-    grid-column: 1 / -1; margin-top: 4px;
-    font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--dim);
+    grid-column: 1 / -1; margin: 6px 0 0;
+    font-size: 0.8125rem; font-weight: 700; color: var(--dim);
   }
   .search {
-    width: 100%; margin: 0 0 10px; padding: 6px 10px;
-    font: inherit; font-size: 13px; color: var(--ink);
-    background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+    flex: 2 1 240px; min-width: 0; min-height: 36px; padding: 6px 10px;
+    font: inherit; font-size: 0.8125rem; color: var(--ink);
+    background: var(--panel); border: 1px solid var(--control); border-radius: 6px;
   }
-  .search[hidden] { display: none; }
   .card.nolink:hover { transform: none; }
   .card svg { display: block; width: 100%; height: auto; }
-  /* Foto del agente con el menú ⋯ arriba a la izquierda y el estado encima, abajo. */
-  .pic { position: relative; overflow: hidden; border-radius: 9px 9px 0 0; }
+  .pic { overflow: hidden; border-radius: 6px; background: #e4d4bc; }
   .more {
-    position: absolute; top: 4px; inset-inline-end: 4px; z-index: 2;
-    font: inherit; font-size: 13px; line-height: 1; padding: 3px 7px; cursor: pointer;
-    color: var(--ink); background: rgba(28, 29, 38, 0.78); border: 1px solid var(--line); border-radius: 6px;
+    position: absolute; top: 7px; inset-inline-end: 7px; z-index: 2;
+    font: inherit; font-size: 0.9375rem; line-height: 1; width: 28px; min-height: 28px; cursor: pointer;
+    color: var(--dim); background: var(--panel); border: 1px solid var(--control); border-radius: 5px;
   }
   .more:hover, .more[aria-expanded='true'] { border-color: var(--accent); }
-  .pill {
-    position: absolute; bottom: 4px; inset-inline-start: 4px; max-width: calc(100% - 8px);
-    display: inline-flex; align-items: center; gap: 5px; padding: 2px 7px;
-    font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    color: var(--ink); background: rgba(28, 29, 38, 0.82); border-radius: 999px;
-  }
-  .working .pill { color: var(--work); }
   /* Posición fija calculada en placeMenu(): se ajusta a los bordes de la ventana y solo
      tiene scroll si es más alto que la propia ventana. */
   .dropdown {
@@ -128,7 +152,6 @@
   .card.zone-over { border-color: var(--accent); }
   .card[draggable='true'] { -webkit-user-drag: element; }
   .dragging .card.is-dragged { opacity: 0.45; }
-  .compact .info { padding-inline-end: 30px; }
   .mi {
     font: inherit; font-size: 12px; text-align: start; padding: 6px 8px; cursor: pointer;
     color: var(--ink); background: transparent; border: 0; border-radius: 5px;
@@ -140,22 +163,38 @@
   .mlabel { font-size: 10px; color: var(--dim); padding: 6px 8px 2px; text-transform: uppercase; letter-spacing: 0.06em; }
   .msep { height: 1px; background: var(--line); margin: 3px 2px; }
   .newchat span { margin-inline-start: 4px; }
+  .newchat[hidden] { display: none; }
   .compact .newchat span { display: none; }
-  .info { padding: 8px 10px 10px; display: grid; gap: 2px; min-width: 0; }
-  .title { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .meta { color: var(--dim); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .state { font-size: 12px; display: flex; align-items: center; gap: 6px; }
-  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--rest); flex: none; }
-  .working .dot { background: var(--work); animation: pulse 1.4s infinite; }
-  .working .state { color: var(--work); }
-  @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(95, 211, 141, 0.6); } 100% { box-shadow: 0 0 0 7px rgba(95, 211, 141, 0); } }
-  .actions { display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap; }
-  .act {
-    font: inherit; font-size: 11px; line-height: 1;
-    display: inline-flex; align-items: center; gap: 4px;
-    color: var(--dim); background: transparent;
-    border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; cursor: pointer;
+  .info { display: grid; gap: 3px; min-width: 0; }
+  .card.managed .info { padding-inline-end: 22px; }
+  .title {
+    font-weight: 720; line-height: 1.23; overflow-wrap: anywhere; overflow: hidden;
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
   }
+  button.title {
+    font-family: inherit; font-size: inherit; color: inherit; text-align: start;
+    border: 0; padding: 0; background: transparent; cursor: pointer;
+  }
+  .meta { color: var(--dim); font-size: 0.75rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .provider { font-weight: 700; color: var(--ink); }
+  .state { color: var(--dim); font-size: 0.75rem; display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--rest); flex: none; }
+  .working .dot { background: var(--work); }
+  .working .state { color: var(--work); }
+  .actions { display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap; }
+  @media (hover: hover) and (pointer: fine) {
+    .actions { opacity: 0; pointer-events: none; }
+    .card:hover .actions, .card:focus-within .actions { opacity: 1; pointer-events: auto; }
+  }
+  .act {
+    font: inherit; font-size: 0.75rem; line-height: 1.2; min-height: 30px;
+    color: var(--ink); background: var(--panel);
+    border: 1px solid var(--control); border-radius: 6px; padding: 4px 8px; cursor: pointer;
+  }
+  @media (pointer: coarse) {
+    .act, .confirm .tool { min-height: 44px; }
+  }
+  button.title:focus-visible, .act:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
   .act:not(:disabled):hover { border-color: var(--accent); color: var(--ink); }
   .act.delete:not(:disabled):hover { border-color: var(--danger); color: var(--danger); }
   .act:disabled { opacity: 0.35; cursor: not-allowed; }
@@ -165,15 +204,17 @@
     position: absolute; inset: 0; z-index: 3; border-radius: inherit;
     background: var(--bg);
     display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 10px;
-    padding: 12px; text-align: center;
+    padding: 8px; text-align: center; overflow: auto; justify-content: safe center;
   }
   .confirm p { margin: 0; overflow-wrap: anywhere; }
-  .confirm .row { display: flex; gap: 8px; }
+  .confirm .row { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
   .confirm .yes { border-color: var(--danger); color: var(--danger); }
-  .empty { color: var(--dim); padding: 30px 0; text-align: center; grid-column: 1 / -1; }
-  .hint { color: var(--dim); font-size: 12px; margin-top: 12px; }
-  #toasts { position: fixed; bottom: 12px; inset-inline-start: 50%; transform: translateX(-50%); display: grid; gap: 6px; z-index: 5; width: min(90vw, 420px); }
-  [dir='rtl'] #toasts { transform: translateX(50%); }
+  .empty { color: var(--dim); padding: 32px 12px; text-align: center; grid-column: 1 / -1; border: 1px dashed var(--control); border-radius: 12px; }
+  .search-row { display: flex; align-items: center; gap: 8px; flex: 2 1 240px; min-width: 0; }
+  .search-row .search { flex: 1 1 120px; }
+  #toasts { flex: 0 1 50%; min-width: 0; overflow-wrap: anywhere; }
+  #toasts:empty { display: none; }
+
   .toast { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; font-size: 12px; }
   .toast.bad { border-color: var(--danger); }
   .toast { position: relative; }
@@ -187,37 +228,33 @@
   .toast .rule.copied { border-color: var(--work); color: var(--work); }
 
   /* Ventana flotante */
-  .compact #app { padding: 8px; }
-  .compact header { margin-bottom: 6px; }
-  .compact header h1 { font-size: 14px; }
-  .compact .hint, .compact #pip { display: none; }
+  .compact #app { padding: 10px; }
+  .compact header { gap: 8px; margin-bottom: 8px; padding-bottom: 8px; }
+  .compact .heading { gap: 8px; }
+  .compact .mark { width: 29px; height: 29px; border-radius: 5px; }
+  .compact header h1 { font-size: 1rem; margin-bottom: 2px; }
+  .compact .count { font-size: 0.6875rem; gap: 6px; }
+  .compact #pip { display: none; }
+  #close-window, #resize-window { display: none; }
+  .compact #close-window { display: inline-block; padding-inline: 9px; }
+  .compact #close-window:hover { color: var(--danger); border-color: var(--danger); }
+  .compact .heading { cursor: grab; user-select: none; }
+  .compact #resize-window { display: block; position: fixed; right: 0; bottom: 0; width: 20px; height: 20px; padding: 0; border: 0; background: transparent; color: var(--dim); cursor: nwse-resize; }
+  .compact #app { padding-bottom: 22px; }
   .fold { display: none; padding: 5px 8px; line-height: 1; }
   .compact .fold { display: inline-block; }
-  .settings { display: flex; gap: 6px; }
-  .folded .chips, .folded .grid, .folded .hint { display: none; }
-  .folded header { margin-bottom: 0; }
-  .compact .chips { margin-bottom: 6px; }
-  .compact .grid { grid-template-columns: 1fr; gap: 6px; }
-  .compact .card { flex-direction: row; align-items: center; }
-  .compact .card svg { width: 100%; }
-  .compact .pic { width: 84px; flex: none; border-radius: 9px 0 0 9px; align-self: stretch; display: flex; align-items: center; background: #d8c3a5; }
-  .compact .pill { font-size: 9px; padding: 1px 5px; gap: 3px; bottom: 3px; inset-inline-start: 3px; }
-  .compact .pill .dot { width: 6px; height: 6px; }
-  .compact .more { top: 4px; inset-inline-end: 4px; font-size: 11px; padding: 2px 6px; }
-  .compact .info { padding: 4px 30px 4px 8px; padding-inline: 8px 30px; }
+  .settings { display: flex; gap: 6px; flex-wrap: wrap; }
+  .folded .filters, .folded .grid { display: none; }
+  .folded header { margin-bottom: 0; padding-bottom: 0; border-bottom: 0; }
+  .compact .filters { margin-bottom: 8px; gap: 6px; }
+  .compact .grid { grid-template-columns: repeat(auto-fill, minmax(min(250px, 100%), 1fr)); gap: 6px; }
+  .compact .card { grid-template-columns: 65px minmax(0, 1fr); gap: 8px; min-height: 72px; padding-block: 6px; }
+  .compact .card .title { font-size: 0.8125rem; }
   .compact .actions { margin-top: 3px; }
-  .compact .act span { display: none; }
   .compact .confirm { flex-direction: row; justify-content: space-between; padding: 6px 8px; font-size: 12px; text-align: start; }
-  /* Ventana compacta más ancha: vuelven las tarjetas grandes y crecen con el ancho. */
-  @media (min-width: 460px) {
-    .compact .grid { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
-    .compact .card { flex-direction: column; align-items: stretch; }
-    .compact .card svg { width: 100%; }
-    .compact .pic { width: auto; border-radius: 9px 9px 0 0; display: block; }
-    .compact .pill { font-size: 11px; padding: 2px 7px; }
-    .compact .info { padding: 8px 10px 10px; }
-    .compact .act span { display: inline; }
-    .compact .confirm { flex-direction: column; justify-content: center; text-align: center; }
+  @media (max-width: 440px) {
+    .filters .search { flex-basis: 100%; }
+    .menu { max-width: calc(100vw - 24px); }
   }
   .settings { position: relative; }
   .gear { padding: 5px 8px; line-height: 1; }
@@ -225,41 +262,68 @@
     position: absolute; top: calc(100% + 6px); inset-inline-end: 0; z-index: 10;
     display: grid; gap: 10px; min-width: 220px; padding: 10px;
     background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    box-shadow: 0 8px 24px #29251f26;
   }
   .menu[hidden] { display: none; }
   .field { display: grid; gap: 4px; font-size: 12px; color: var(--dim); }
   .field select { width: 100%; }
 
   @media (prefers-reduced-motion: reduce) {
-    .working .dot { animation: none; }
-    .card, .actions { transition: none; }
+    body, .card { transition: none; }
   }
 </style>
 </head>
 <body>
 <div id="app">
   <header>
-    <h1 data-t="title"></h1>
-    <span class="count" id="count"></span>
+    <div class="heading">
+      <span class="mark" aria-hidden="true"></span>
+      <div><h1 data-t="title"></h1><div class="count" id="count" role="status"></div></div>
+    </div>
     <div class="settings">
       <button class="tool newchat" id="newchat" type="button" data-t-title="newChat">＋<span data-t="newChat"></span></button>
-      <button class="tool gear" id="gear" type="button" aria-haspopup="true" aria-expanded="false" data-t-title="lang">⚙</button>
+      <button class="tool" id="pip" type="button" data-t="float" data-t-title="floatTip"></button>
+      <button class="tool gear" id="gear" type="button" aria-haspopup="true" aria-expanded="false" data-t-title="settingsLabel">⚙</button>
       <button class="tool fold" id="fold" type="button" aria-expanded="true">▾</button>
+      <button class="tool" id="close-window" type="button" data-t-title="closeWindow">×</button>
       <div class="menu" id="menu" hidden>
+        <label class="field"><span data-t="appearance"></span><select class="tool" id="appearance" data-t-title="appearance">
+          <option value="system" data-t="systemAppearance"></option><option value="light" data-t="lightAppearance"></option><option value="dark" data-t="darkAppearance"></option>
+        </select></label>
         <label class="field"><span data-t="lang"></span><select class="tool" id="lang"></select></label>
         <label class="toggle"><input type="checkbox" id="notify" /> <span data-t="notify"></span></label>
       </div>
     </div>
-    <button class="tool" id="pip" type="button" data-t="float" data-t-title="floatTip"></button>
   </header>
-  <div class="chips" id="chips"></div>
+  <div class="filters">
+    <div class="filter-fields">
+      <div class="search-row">
+        <input class="search" id="search" type="search" autocomplete="off" />
+        <div id="toasts" role="status" aria-live="polite"></div>
+      </div>
+      <select class="tool" id="provider" data-t-title="providerLabel">
+        <option value="" data-t="allProviders"></option>
+        <option value="codex">Codex</option>
+        <option value="claude">Claude</option>
+      </select>
+      <select class="tool" id="project" data-t-title="projectLabel"></select>
+    </div>
+    <div class="filter-options">
+      <select class="tool" id="presence" data-t-title="presenceLabel">
+        <option value="" data-t="all"></option>
+        <option value="online" data-t="online"></option>
+      </select>
+      <label class="toggle"><span id="color-label"></span>
+        <select class="tool" id="decoration"></select>
+      </label>
+      <label class="toggle"><input id="older" type="checkbox" /> <span id="older-label"></span></label>
+      <button class="reset-filters" id="reset-filters" type="button" data-t="resetFilters" hidden></button>
+    </div>
+  </div>
   <div class="dropbar" id="dropbar" hidden></div>
-  <input class="search" id="search" type="search" autocomplete="off" hidden />
   <div class="grid" id="grid"></div>
-  <p class="hint" data-t="hint"></p>
-  <div id="toasts" role="status" aria-live="polite"></div>
 </div>
+<button id="resize-window" type="button" data-t-title="resizeWindow">◢</button>
 
 <script>
   // ---------- idiomas ----------
@@ -303,9 +367,25 @@
   }
   let lang = store.get('lang', '') || guessLang()
   if (!LANGS[lang]) lang = 'es'
+  const OFFICE_TEXT = {
+    es: { older: 'Incluir anteriores a 24 h ({n})', emptyRecent: 'No hay chats activos ni recientes.', noMatches: 'Ningún chat coincide con los filtros.', untitledCodex: 'Chat de Codex', settingsLabel: 'Ajustes', allProviders: 'Todas las apps', providerLabel: 'Aplicación', allProjects: 'Todos los proyectos', noProject: 'Sin proyecto', projectLabel: 'Proyecto', resetFilters: 'Limpiar filtros', noResults: '0 chats' },
+    en: { older: 'Include chats older than 24 h ({n})', emptyRecent: 'No active or recent chats.', noMatches: 'No chats match the filters.', untitledCodex: 'Codex chat', settingsLabel: 'Settings', allProviders: 'All apps', providerLabel: 'App', allProjects: 'All projects', noProject: 'No project', projectLabel: 'Project', resetFilters: 'Clear filters', noResults: '0 chats' },
+  }
+  const CANCEL = {
+    es: 'Cancelar', en: 'Cancel', zh: '取消', hi: 'रद्द करें', fr: 'Annuler', ar: 'إلغاء',
+    bn: 'বাতিল', pt: 'Cancelar', ru: 'Отмена', ur: 'منسوخ کریں', id: 'Batal', de: 'Abbrechen',
+    ja: 'キャンセル', mr: 'रद्द करा', te: 'రద్దు చేయి', tr: 'İptal', ta: 'ரத்துசெய்',
+    vi: 'Hủy', ko: '취소', it: 'Annulla',
+  }
+  Object.assign(OFFICE_TEXT.es, { appearance: 'Apariencia', systemAppearance: 'Según el sistema', lightAppearance: 'Claro', darkAppearance: 'Oscuro', closeWindow: 'Cerrar Oficina', resizeWindow: 'Cambiar tamaño', pendingAction: 'Procesando…', online: 'En línea', presenceLabel: 'Conexión de los agentes', colors: 'Color', projectColor: 'Color del proyecto', inheritColor: 'Usar color general', actionBusy: 'El chat sigue trabajando. Espera a que termine.', actionLocked: 'Codex mantiene este chat abierto. Ábrelo y usa su menú para archivar o eliminar.', actionUnavailable: 'No se pudo conectar con Codex. Vuelve a intentarlo.', actionMissing: 'El chat ya no está disponible. Actualiza la Oficina.' })
+  Object.assign(OFFICE_TEXT.en, { appearance: 'Appearance', systemAppearance: 'System', lightAppearance: 'Light', darkAppearance: 'Dark', closeWindow: 'Close Office', resizeWindow: 'Resize window', pendingAction: 'Processing…', online: 'Online', presenceLabel: 'Agent connection', colors: 'Color', projectColor: 'Project color', inheritColor: 'Use general color', actionBusy: 'The chat is still working. Wait for it to finish.', actionLocked: 'Codex is keeping this chat open. Open it and use its menu to archive or delete.', actionUnavailable: 'Could not connect to Codex. Try again.', actionMissing: 'This chat is no longer available. Refresh the office.' })
+  const THEME_NAMES = {
+    es: ['Madera', 'Azul', 'Verde', 'Gris', 'Noche', 'Rosa', 'Arena', 'Menta'],
+    en: ['Wood', 'Blue', 'Green', 'Grey', 'Night', 'Pink', 'Sand', 'Mint'],
+  }
   const T = (key, vars = {}) => {
     const i = KEYS.indexOf(key)
-    const s = (LANGS[lang][1][i] ?? LANGS.es[1][i] ?? key)
+    const s = OFFICE_TEXT[lang]?.[key] ?? OFFICE_TEXT.en[key] ?? LANGS[lang][1][i] ?? LANGS.es[1][i] ?? key
     return s.replace(/\{(\w)\}/g, (_, v) => String(vars[v] ?? ''))
   }
 
@@ -328,19 +408,22 @@
   const hash = t => { let h = 2166136261; for (let i = 0; i < t.length; i++) h = Math.imul(h ^ t.charCodeAt(i), 16777619); return Math.abs(h) }
   const esc = t => String(t).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`)
   const px = (x, y, w, h, fill, extra = '') => `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${fill}"${extra}/>`
+  const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)')
 
   function desk(d) {
-    const ti = themeOf(d.project), [fa, fb, rug] = THEMES[ti]
+    const project = d.project || ''
+    const ti = themeOf(project), [fa, fb, rug] = THEMES[ti]
+    const floor = `floor-${esc(d.id)}`
     const seed = hash(d.id)
-    const shirt = SHIRTS[hash(d.project) % SHIRTS.length]
+    const shirt = SHIRTS[hash(project) % SHIRTS.length]
     const hair = HAIRS[seed % HAIRS.length]
     const skin = SKINS[(seed >> 3) % SKINS.length]
     const delay = ((seed % 7) / 10).toFixed(1)
     const on = d.isRunning
     const o = []
     o.push(`<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" aria-hidden="true">`)
-    o.push(`<defs><pattern id="f${ti}" width="32" height="32" patternUnits="userSpaceOnUse"><rect width="32" height="32" fill="${fa}"/><rect width="16" height="16" fill="${fb}"/><rect x="16" y="16" width="16" height="16" fill="${fb}"/></pattern></defs>`)
-    o.push(px(0, 0, W, H, `url(#f${ti})`))
+    o.push(`<defs><pattern id="${floor}" width="32" height="32" patternUnits="userSpaceOnUse"><rect width="32" height="32" fill="${fa}"/><rect width="16" height="16" fill="${fb}"/><rect x="16" y="16" width="16" height="16" fill="${fb}"/></pattern></defs>`)
+    o.push(px(0, 0, W, H, `url(#${floor})`))
     o.push(px(12, 18, W - 24, 92, rug, ' rx="6"'))
     o.push(px(34, 44, 36, 34, '#4a4e69', ' rx="4"'))
     const cx = 38, cy = 30
@@ -367,7 +450,8 @@
     o.push(px(102, 62, 8, 4, '#22223b'))
     if (seed % 3 === 0) o.push(px(W - 26, 50, 10, 16, '#bc6c25'), px(W - 30, 38, 18, 14, '#40916c', ' rx="6"'))
     o.push('</svg>')
-    return o.join('')
+    const svg = o.join('')
+    return reducedMotion.matches ? svg.replace(/<animate(?:Transform)? [^>]*\/>/g, '') : svg
   }
 
   function ago(iso, short = false) {
@@ -382,19 +466,19 @@
   }
 
   function themeOf(project) {
-    const raw = store.get('theme.' + project, '')
+    return savedTheme('theme.' + project) ?? savedTheme('theme.default') ?? 0
+  }
+  function savedTheme(key) {
+    const raw = store.get(key, '')
     const saved = Number(raw)
     return raw !== '' && Number.isInteger(saved) && saved >= 0 && saved < THEMES.length
       ? saved
-      : hash(project) % THEMES.length
-  }
-  function cycleTheme(project) {
-    store.set('theme.' + project, String((themeOf(project) + 1) % THEMES.length))
+      : null
   }
   function paintBackground() {
     for (const d of [document, pipWin?.document].filter(Boolean)) {
       d.body.style.background = filter
-        ? `color-mix(in srgb, ${THEMES[themeOf(filter)][1]} 14%, #1c1d26)`
+        ? `color-mix(in srgb, ${THEMES[themeOf(filter.slice(1))][1]} 12%, var(--bg))`
         : ''
     }
   }
@@ -402,8 +486,17 @@
   // ---------- estado ----------
   let current = { desks: [], updatedAt: 0 }
   let connected = false
-  let filter = store.get('filter', '')
-  let confirming = null // { id, action }
+  let showOlder = false
+  const DAY = 24 * 60 * 60 * 1000
+  const titleOf = d => d.title || T('untitledCodex')
+  const providerOf = d => d.provider === 'codex' ? 'Codex' : 'Claude'
+  const projectName = project => project || T('noProject')
+  let filter = ''
+  let providerFilter = ''
+  let presenceFilter = ''
+  let query = ''
+  let confirming = null
+  const pendingActions = new Set()
   let pipWin = null
   const wasRunning = new Map()
   const doc = () => pipWin?.document ?? document
@@ -415,8 +508,9 @@
     const t = doc().createElement('div')
     t.className = 'toast' + (bad ? ' bad' : '')
     t.textContent = text
-    box.append(t)
-    setTimeout(() => t.remove(), 5000)
+    box.replaceChildren(t)
+    fitWindow()
+    setTimeout(() => { t.remove(); fitWindow() }, 5000)
   }
 
   async function post(path, body) {
@@ -553,10 +647,9 @@
 
   async function menuAction(mi, d, target, card) {
     if (mi === 'open') { if (d.link) { markRead(d); void openSession(d.link, card.ownerDocument) } return render() }
-    // Archivar se deshace desde la app; detener y eliminar piden confirmación.
-    if (mi === 'archive') return runAction('archive', d)
-    // El foco va a ✕ (la opción segura): un Enter de más no elimina nada.
-    if (mi === 'stop' || mi === 'delete') { confirming = { id: d.id, action: mi }; render(); return focusIn(d.id, '[data-no]') }
+    if (mi === 'archive') return runAction('archive', d, '[data-menu]')
+    if (mi === 'delete') return runAction('delete', d, '[data-menu]', true)
+    if (mi === 'stop') return confirmAction(d.id, mi, '[data-menu]')
     if (mi === 'rename') {
       render()
       const win = card.ownerDocument.defaultView ?? window
@@ -575,20 +668,33 @@
   }
 
   // Lleva el foco a un control de una tarjeta (tras repintar, la cuadrícula es nueva).
-  // sel '' = la propia tarjeta; si el control ya no está, al botón ⋯.
   function focusIn(id, sel) {
     const card = [...(el('grid')?.querySelectorAll('.card') ?? [])].find(c => c.dataset.id === id)
     if (!card) return
-    const t = sel === '' ? card : card.querySelector(sel) ?? card.querySelector('[data-menu]')
+    const preferred = card.querySelector(sel)
+    const t = preferred?.matches(':enabled') ? preferred
+      : card.querySelector('[data-open]:enabled, [data-menu]:enabled, [data-act]:enabled, [data-no]')
     t?.focus({ preventScroll: true })
   }
   function focusSel(n) {
-    if (n.classList.contains('card')) return ''
     if (n.dataset.mi) return `[data-mi="${n.dataset.mi}"]` + (n.dataset.group !== undefined ? `[data-group="${CSS.escape(n.dataset.group)}"]` : '')
+    if (n.dataset.act) return `[data-act="${n.dataset.act}"]`
+    if ('open' in n.dataset) return '[data-open]'
     if ('menu' in n.dataset) return '[data-menu]'
     if (n.dataset.yes) return '[data-yes]'
     if ('no' in n.dataset) return '[data-no]'
     return '[data-menu]'
+  }
+  function confirmAction(id, action, returnTo) {
+    confirming = { id, action, returnTo }
+    render()
+    focusIn(id, '[data-no]')
+  }
+  function cancelConfirmation() {
+    const { id, returnTo } = confirming
+    confirming = null
+    render()
+    focusIn(id, returnTo)
   }
   function closeMenu(refocus) {
     const id = menuFor
@@ -639,7 +745,7 @@
     d.addEventListener('keydown', ev => {
       if (ev.key === 'Escape') {
         if (menuFor) { ev.preventDefault(); closeMenu(true) }
-        else if (confirming) { const id = confirming.id; confirming = null; render(); focusIn(id, '[data-menu]') }
+        else if (confirming) { ev.preventDefault(); cancelConfirmation() }
         return
       }
       const dd = menuFor && ev.target.closest?.('.dropdown')
@@ -653,15 +759,34 @@
     d.defaultView?.addEventListener('resize', placeMenu)
   }
 
-  async function runAction(action, d) {
+  async function runAction(action, d, returnTo, confirmed = false) {
+    if (pendingActions.has(d.id)) return
     confirming = null
+    pendingActions.add(d.id)
+    render()
     try {
-      // Sin aviso al enviar: el resultado llega por el evento «result».
-      if (!(await post('/api/action', { action, sessionId: d.id }))) toast(T('failed'), true)
+      const response = await fetch('/api/action', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-oficina': '1' },
+        body: JSON.stringify({ action, sessionId: d.id, confirmed }),
+      })
+      if (!response.ok) {
+        const detail = await response.json().catch(() => ({}))
+        const key = detail.error === 'codex writer active' ? 'actionLocked'
+          : { 409: 'actionBusy', 404: 'actionMissing', 502: 'actionUnavailable' }[response.status] ?? 'failed'
+        toast(detail.message ? `${T('failed')} · ${detail.message}` : T(key), true)
+      }
     } catch {
       toast(T('failed'), true)
+    } finally {
+      pendingActions.delete(d.id)
+      const active = doc().activeElement
+      render()
+      if (active === doc().body || active?.closest('.card')?.dataset.id === d.id) {
+        focusIn(d.id, returnTo)
+        if (doc().activeElement === doc().body) el('search')?.focus({ preventScroll: true })
+      }
     }
-    render()
   }
 
   // ---------- avisos ----------
@@ -688,7 +813,7 @@
     for (const d of desks) {
       const before = wasRunning.get(d.id)
       if (before === true && !d.isRunning && !d.isSelf && notify) {
-        const text = T('finished', { t: d.title })
+        const text = T('finished', { t: titleOf(d) })
         chime()
         toast(text)
         if ('Notification' in window && Notification.permission === 'granted') {
@@ -707,6 +832,10 @@
       d.documentElement.dir = RTL.has(lang) ? 'rtl' : 'ltr'
       d.querySelectorAll('[data-t]').forEach(n => { n.textContent = T(n.dataset.t) })
       d.querySelectorAll('[data-t-title]').forEach(n => { n.title = T(n.dataset.tTitle) })
+      for (const id of ['appearance', 'close-window', 'resize-window']) {
+        const control = d.getElementById(id)
+        control?.setAttribute('aria-label', T(control.dataset.tTitle))
+      }
       const sel = d.getElementById('lang')
       if (sel) sel.setAttribute('aria-label', T('lang'))
     }
@@ -717,45 +846,67 @@
 
   function render() {
     if (dragId) { renderLater = true; return }
-    const all = current.desks
-    const working = all.filter(d => d.isRunning).length
+    const normalize = text => text.toLowerCase().normalize('NFD').replace(/\p{M}/gu, '')
+    const terms = normalize(query.trim()).split(/\s+/).filter(Boolean)
+    const providerDesks = current.desks.filter(d => !providerFilter || providerFilter === (d.provider || 'claude'))
+    const projects = [...new Set(providerDesks.map(d => d.project || ''))]
+      .sort((a, b) => projectName(a).localeCompare(projectName(b), lang))
+    const options = [['', T('allProjects')], ...projects.map(name => ['p' + name, projectName(name)])]
+    if (filter && !options.some(([value]) => value === filter)) filter = ''
+    const matches = stableOrder(providerDesks).filter(d => {
+      if (presenceFilter && !(d.online || d.isRunning || d.onScreen || d.focused)) return false
+      const project = d.project || ''
+      if (filter && project !== filter.slice(1)) return false
+      const text = normalize(`${titleOf(d)} ${providerOf(d)} ${projectName(project)} ${d.group ?? ''} ${d.pr ?? ''}`)
+      return terms.every(term => text.includes(term))
+    })
+    const cutoff = Date.now() - DAY
+    const isOlder = d => !d.online && !d.isRunning && !d.onScreen && !d.focused && Date.parse(d.lastActivityAt) <= cutoff
+    const recent = matches.filter(d => !isOlder(d))
+    const desks = showOlder ? matches : recent
+    const isFiltered = Boolean(terms.length || filter || providerFilter || presenceFilter)
+    el('older-label').textContent = T('older', { n: matches.length - recent.length })
+    el('older').checked = showOlder
+    el('reset-filters').hidden = !isFiltered && !showOlder
+    const newChat = el('newchat')
+    if (newChat) {
+      const label = T('newChat') + (current.desks.some(d => d.provider === 'codex') ? ' · Claude' : '')
+      newChat.hidden = current.hasClaude === false
+      newChat.title = label
+      newChat.querySelector('span').textContent = label
+    }
+    const working = desks.filter(d => d.isRunning).length
     el('count').innerHTML = !connected
       ? esc(T('connecting'))
-      : all.length
-        ? `<b>${esc(T('working', { n: working }))}</b> · ${esc(T('paused', { n: all.length - working }))}`
-        : esc(T('noData'))
+      : desks.length
+        ? `<span class="live"><i class="dot" aria-hidden="true"></i>${esc(T('working', { n: working }))}</span><span>${esc(T('paused', { n: desks.length - working }))}</span>`
+        : esc(T('noResults'))
 
-    // filtros por proyecto
-    const projects = [...new Set(all.map(d => d.project))].sort()
-    if (filter && !projects.includes(filter)) filter = ''
-    el('chips').innerHTML = projects.length > 1
-      ? [['', T('all')], ...projects.map(p => [p, p])].map(([v, label]) =>
-          `<button class="chip" type="button" data-f="${esc(v)}" aria-pressed="${filter === v}" title="${esc(label)}">${esc(label)}</button>`).join('')
-      : ''
-    if (filter) {
-      el('chips').insertAdjacentHTML('beforeend',
-        `<button class="chip deco" type="button" data-deco title="${esc(T('theme'))}" aria-label="${esc(T('theme'))}: ${esc(filter)}">🎨 ${esc(T('theme'))}</button>`)
+    const project = el('project')
+    const optionKey = JSON.stringify(options)
+    if (project.dataset.options !== optionKey) {
+      project.innerHTML = options.map(([value, label]) => `<option value="${esc(value)}">${esc(label)}</option>`).join('')
+      project.dataset.options = optionKey
     }
-    el('chips').querySelectorAll('.chip').forEach(c => c.addEventListener('click', () => {
-      if ('deco' in c.dataset) cycleTheme(filter)
-      else { filter = c.dataset.f; store.set('filter', filter) }
-      render()
-      fitWindow()
-    }))
+    project.value = filter
+    el('provider').value = providerFilter
+    el('presence').value = presenceFilter
+    const decoration = el('decoration')
+    const themeOptions = (THEME_NAMES[lang] ?? THEME_NAMES.en).map((name, index) => [String(index), name])
+    if (filter) themeOptions.unshift(['', T('inheritColor')])
+    const themeKey = JSON.stringify(themeOptions)
+    if (decoration.dataset.options !== themeKey) {
+      decoration.innerHTML = themeOptions.map(([value, name]) => `<option value="${value}">${esc(name)}</option>`).join('')
+      decoration.dataset.options = themeKey
+    }
+    decoration.value = filter ? String(savedTheme('theme.' + filter.slice(1)) ?? '') : String(savedTheme('theme.default') ?? 0)
+    el('color-label').textContent = T(filter ? 'projectColor' : 'colors')
     paintBackground()
 
-    // Buscador (aparece con muchas sesiones) y lista visible.
     const search = el('search')
-    if (search) {
-      search.hidden = all.length <= 6 && !query
-      search.placeholder = T('search')
-      search.setAttribute('aria-label', T('search'))
-    }
-    const q = query.trim().toLowerCase()
-    const desks = stableOrder(all)
-      .filter(d => !filter || d.project === filter)
-      .filter(d => !q || `${d.title} ${d.project} ${d.group ?? ''} ${d.pr ?? ''}`.toLowerCase().includes(q))
-    markSeen(all)
+    search.placeholder = T('search')
+    search.setAttribute('aria-label', T('search'))
+    markSeen(current.desks)
 
     // Secciones: fijadas, luego cada grupo de la barra lateral, luego sin grupo.
     const sections = []
@@ -776,31 +927,38 @@
 
     const grid = el('grid')
     if (!desks.length) {
-      grid.innerHTML = `<div class="empty">${esc(T('waiting'))}</div>`
+      const message = !connected ? 'connecting' : isFiltered ? 'noMatches' : 'emptyRecent'
+      grid.innerHTML = `<div class="empty">${esc(T(message))}</div>`
       return
     }
-    const cardHtml = d => {
-      const title = d.title
+    const cardHtml = (d, zone) => {
+      const title = titleOf(d)
+      const managed = d.provider !== 'codex'
       const conf = confirming && confirming.id === d.id ? confirming.action : null
-      // Estado encima de la foto: «Trabajando» o cuánto lleva en pausa.
-      const stateText = d.isRunning ? T('stWorking') : d.lastActivityAt ? ago(d.lastActivityAt, true) : T('stPaused')
+      const blocked = d.isRunning || pendingActions.has(d.id)
+      const stateText = pendingActions.has(d.id) ? T('pendingAction') : d.isRunning ? T('stWorking') : T('stPaused')
+      const activityAge = Number.isFinite(Date.parse(d.lastActivityAt)) ? ago(d.lastActivityAt, true) : ''
       const menuOpen = menuFor === d.id
       const confirmBox = conf ? `<div class="confirm" data-stop>
-          <p>${esc(T({ stop: 'confirmStop', archive: 'confirmArchive', delete: 'confirmDelete' }[conf], { t: d.title }))}</p>
-          <div class="row"><button class="tool yes" type="button" data-yes="${conf}">${esc(T(conf))}</button><button class="tool" type="button" data-no aria-label="✕">✕</button></div>
+          <p id="confirm-message">${esc(T(conf === 'stop' ? 'confirmStop' : 'confirmDelete', { t: title }))}</p>
+          <div class="row"><button class="tool" type="button" data-no aria-describedby="confirm-message">${esc(CANCEL[lang] ?? CANCEL.en)}</button><button class="tool yes" type="button" data-yes="${conf}" aria-describedby="confirm-message" ${conf === 'delete' && blocked ? 'disabled' : ''}>${esc(T(conf))}</button></div>
         </div>` : ''
-      return `<div class="card ${menuOpen ? 'menu-open' : ''} ${d.isRunning ? 'working' : ''} ${d.link ? '' : 'nolink'} ${d.onScreen ? 'onscreen' : ''} ${d.focused ? 'focused' : ''}" data-id="${esc(d.id)}"
-          ${d.link ? 'role="button" tabindex="0"' : ''}>
-        <div class="pic" title="${esc(d.title)}">
+      return `<div class="card ${managed ? 'managed' : ''} ${menuOpen ? 'menu-open' : ''} ${d.isRunning ? 'working' : ''} ${d.link ? '' : 'nolink'} ${d.onScreen ? 'onscreen' : ''} ${d.focused ? 'focused' : ''}" data-id="${esc(d.id)}"
+          ${managed ? `data-zone="${esc(zone)}" draggable="${!conf}"` : ''}>
+        <div class="pic" aria-hidden="true">
           ${desk(d)}
-          <span class="pill"><span class="dot"></span>${esc(stateText)}</span>
         </div>
-        <div class="info" title="${esc(d.title)}">
-          <div class="title">${d.focused || d.onScreen ? `<span class="badge">${esc(T('onScreen'))}</span>` : ''}${isUnread(d) ? `<span class="badge new">${esc(T('unread'))}</span>` : ''}${esc(title)}</div>
-          <div class="meta">${esc(d.project)}${d.pr ? ` · PR ${esc(d.pr)}` : ''}${d.group ? ` · ${esc(d.group)}` : ''}</div>
+        <div class="info" ${conf ? 'inert' : ''}>
+          ${d.link ? `<button class="title" type="button" data-open title="${esc(title)}">${esc(title)}</button>` : `<div class="title" title="${esc(title)}">${esc(title)}</div>`}
+          <div class="meta"><span class="provider">${providerOf(d)}</span>${d.project !== providerOf(d) ? ` · ${esc(projectName(d.project))}` : ''}${d.pr ? ` · PR ${esc(d.pr)}` : ''}</div>
+          <div class="state"><span class="dot" aria-hidden="true"></span>${esc(stateText)}${!d.isRunning && activityAge ? ` · ${esc(activityAge)}` : ''}${d.focused || d.onScreen ? `<span class="badge">${esc(T('onScreen'))}</span>` : ''}${isUnread(d) ? `<span class="badge new">${esc(T('unread'))}</span>` : ''}</div>
           ${doingHtml(d)}
+          <div class="actions">
+            <button class="act" type="button" data-act="archive" ${blocked ? 'disabled' : ''}>${esc(T('archive'))}</button>
+            <button class="act delete" type="button" data-act="delete" ${blocked ? 'disabled' : ''}>${esc(T('delete'))}</button>
+          </div>
         </div>
-        <button class="more" type="button" data-menu aria-haspopup="true" aria-expanded="${menuOpen}" title="${esc(T('more'))}" aria-label="${esc(T('more'))}">⋯</button>
+        ${managed && !conf ? `<button class="more" type="button" data-menu aria-haspopup="true" aria-expanded="${menuOpen}" title="${esc(T('more'))}" aria-label="${esc(T('more'))}">⋯</button>` : ''}
         ${menuOpen ? menuHtml(d) : ''}
         ${confirmBox}
       </div>`
@@ -813,7 +971,7 @@
     grid.innerHTML = sections
       .map(([name, list, zone]) =>
         (showHeaders ? `<div class="section"${zone ? ` data-drop="${esc(zone)}"` : ''}>${esc(name)}</div>` : '') +
-        list.map(d => cardHtml(d).replace('<div class="card ', `<div data-zone="${esc(zone)}" draggable="true" class="card `)).join(''))
+        list.map(d => cardHtml(d, zone)).join(''))
       .join('')
 
     placeMenu()
@@ -822,7 +980,7 @@
     grid.querySelectorAll('.card').forEach(card => {
       const d = desks.find(x => x.id === card.dataset.id)
       if (!d) return
-      const open = () => { if (d.link) { markRead(d); void openSession(d.link, card.ownerDocument) } }
+      const open = () => { if (d.link && confirming?.id !== d.id) { markRead(d); void openSession(d.link, card.ownerDocument) } }
       card.addEventListener('click', ev => {
         const t = ev.target.closest('button, [data-stop]')
         if (!t) return open()
@@ -836,21 +994,13 @@
           return focusIn(d.id, menuFor ? '.mi:not(:disabled)' : '[data-menu]')
         }
         if (t.dataset.mi) { menuFor = null; return void menuAction(t.dataset.mi, d, t, card) }
-        if (t.dataset.act) { confirming = { id: d.id, action: t.dataset.act }; render(); focusIn(d.id, '[data-no]') }
-        else if (t.dataset.yes) void runAction(t.dataset.yes, d)
-        else if ('no' in t.dataset) { confirming = null; render(); focusIn(d.id, '[data-menu]') }
-      })
-      card.addEventListener('keydown', ev => {
-        if (ev.target === card && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); open() }
+        if ('open' in t.dataset) return open()
+        if (t.dataset.act === 'archive') return void runAction('archive', d, '[data-act="archive"]')
+        if (t.dataset.act === 'delete') return void runAction('delete', d, '[data-act="delete"]', true)
+        if (t.dataset.yes) return void runAction(t.dataset.yes, d, confirming.returnTo, true)
+        if ('no' in t.dataset) cancelConfirmation()
       })
     })
-  }
-
-  // ---------- búsqueda ----------
-  let query = ''
-  {
-    const input = document.getElementById('search')
-    input?.addEventListener('input', () => { query = input.value; render(); fitWindow() })
   }
 
   // ---------- qué está haciendo ----------
@@ -889,19 +1039,82 @@
     return !d.isRunning && !d.focused && !d.onScreen && Boolean(d.lastActivityAt) && (seen[d.id] ?? '') < d.lastActivityAt
   }
 
-  // Orden estable: cada tarjeta conserva su sitio entre refrescos (antes se reordenaban al cambiar
-  // de estado o de actividad y la cuadrícula «bailaba»). Las que aparecen después entran arriba.
+  // Orden estable dentro de cada estado. Las tarjetas nuevas entran arriba.
   const deskOrder = new Map()
   let nextTop = 0
   function stableOrder(list) {
     const byActivity = [...list].sort((a, b) =>
       (Date.parse(a.lastActivityAt ?? 0) || 0) - (Date.parse(b.lastActivityAt ?? 0) || 0))
     for (const d of byActivity) if (!deskOrder.has(d.id)) deskOrder.set(d.id, --nextTop)
-    return [...list].sort((a, b) => deskOrder.get(a.id) - deskOrder.get(b.id))
+    return [...list].sort((a, b) => Number(Boolean(b.isRunning)) - Number(Boolean(a.isRunning)) || deskOrder.get(a.id) - deskOrder.get(b.id))
   }
 
   // ---------- controles ----------
+  function applyAppearance() {
+    const saved = store.get('appearance', 'system')
+    const mode = ['light', 'dark'].includes(saved) ? saved : 'system'
+    const dark = mode === 'dark' || (mode === 'system' && matchMedia('(prefers-color-scheme: dark)').matches)
+    for (const d of [document, pipWin?.document].filter(Boolean)) {
+      d.documentElement.dataset.appearance = dark ? 'dark' : 'light'
+      const select = d.getElementById('appearance')
+      if (select) select.value = mode
+    }
+  }
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyAppearance)
+  window.addEventListener('storage', ev => { if (ev.key === 'oficina.appearance') applyAppearance() })
+
   function setupControls(d) {
+    d.getElementById('appearance').onchange = ev => {
+      store.set('appearance', ev.target.value)
+      applyAppearance()
+    }
+    d.getElementById('close-window').onclick = async () => {
+      if (pipWin) return pipWin.close()
+      if (!IS_MINI) return
+      try { if (await post('/api/window', { action: 'close' })) return } catch {}
+      window.close()
+    }
+    d.querySelector('.heading').onpointerdown = ev => {
+      if (!IS_MINI || pipWin || ev.button !== 0) return
+      ev.preventDefault()
+      void post('/api/window', { action: 'drag' }).catch(() => {})
+    }
+    d.getElementById('resize-window').onpointerdown = ev => {
+      if (!IS_MINI || pipWin || ev.button !== 0) return
+      ev.preventDefault()
+      void post('/api/window', { action: 'size' }).catch(() => {})
+    }
+    d.getElementById('resize-window').onkeydown = ev => {
+      if (!IS_MINI || !['Enter', ' '].includes(ev.key)) return
+      ev.preventDefault()
+      void post('/api/window', { action: 'size' }).catch(() => {})
+    }
+    const search = d.getElementById('search')
+    const provider = d.getElementById('provider')
+    const project = d.getElementById('project')
+    const older = d.getElementById('older')
+    const presence = d.getElementById('presence')
+    function updateFilters() {
+      query = search.value
+      providerFilter = provider.value
+      presenceFilter = presence.value
+      filter = project.value
+      showOlder = older.checked
+      render()
+      fitWindow()
+    }
+    search.oninput = provider.onchange = project.onchange = presence.onchange = older.onchange = updateFilters
+    d.getElementById('reset-filters').onclick = () => {
+      search.value = provider.value = project.value = presence.value = ''
+      older.checked = false
+      updateFilters()
+      search.focus()
+    }
+    d.getElementById('decoration').onchange = ev => {
+      store.set(filter ? 'theme.' + filter.slice(1) : 'theme.default', ev.target.value)
+      render()
+      fitWindow()
+    }
     const gear = d.getElementById('gear'), menu = d.getElementById('menu')
     if (gear && menu && !gear.dataset.ready) {
       gear.dataset.ready = '1'
@@ -950,6 +1163,7 @@
     style.textContent = document.getElementById('oficina-style').textContent
     pipWin.document.head.append(style)
     pipWin.document.documentElement.classList.add('compact')
+    applyAppearance()
     pipWin.document.body.append(app)
     watchDoc(pipWin.document)
     const away = document.createElement('p')
@@ -1001,11 +1215,12 @@
     if (!IS_MINI || pipWin) return
     clearTimeout(fitTimer)
     fitTimer = setTimeout(async () => {
-      const key = `${current.desks.length}|${filter}|${window.innerWidth}|${store.get('folded', '0')}`
+      const appHeight = Math.ceil(document.getElementById('app').getBoundingClientRect().height)
+      const key = `${appHeight}|${window.innerWidth}|${store.get('folded', '0')}`
       if (key === lastFit) return
       lastFit = key
       const chrome = window.outerHeight - window.innerHeight
-      const want = Math.round(Math.min(screen.availHeight * 0.9, Math.max(store.get('folded', '0') === '1' ? 60 : 220, Math.ceil(document.getElementById('app').getBoundingClientRect().height) + chrome)))
+      const want = Math.round(Math.min(screen.availHeight * 0.9, Math.max(store.get('folded', '0') === '1' ? 60 : 220, appHeight + chrome)))
       if (Math.abs(want - window.outerHeight) < 8) return
       const before = window.outerHeight
       try { window.resizeTo(window.outerWidth, want) } catch {}
@@ -1025,6 +1240,7 @@
     document.documentElement.classList.add('compact')
   }
   setupControls(document)
+  applyAppearance()
   applyLang()
   if (IS_MINI) applyFold()
   render()
@@ -1049,6 +1265,7 @@
     const r = JSON.parse(ev.data)
     const d = current.desks.find(x => x.id === r.sessionId)
     const name = d ? d.title : r.sessionId
+    if ((r.ok || r.pending) && ['archive', 'delete'].includes(r.action)) return
     if (r.ok) return toast(r.action === 'archive' ? T('archived', { t: name }) : `${T('done')}: ${T(RESULT_KEY[r.action] ?? r.action)} · ${name}`)
     if (r.pending) return toast(`${name} · ${r.message}`)
     if (NEEDS_PERMISSION.test(r.message ?? '')) return permissionHint(r.action)
@@ -1094,7 +1311,7 @@
     setTimeout(() => t.remove(), 30_000)
   }
   es.onerror = () => { connected = false; el('count').textContent = T('reconnecting') }
-  setInterval(render, 30_000)
+  setInterval(() => { render(); fitWindow() }, 30_000)
 </script>
 </body>
 </html>
