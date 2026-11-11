@@ -56,18 +56,15 @@
   #pip:hover { background: var(--accent); border-color: var(--accent); }
   .toggle { display: inline-flex; align-items: center; gap: 6px; color: var(--dim); cursor: pointer; font-size: 12px; }
   :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  .filters { display: flex; align-items: start; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; }
-  .filters:has(.chips:empty):has(.search[hidden]):has(.older[hidden]) { display: none; }
-  .chips { display: flex; gap: 6px; flex-wrap: wrap; flex: 1 1 240px; min-width: 0; }
-  .chips:empty { display: none; }
-  .chip {
-    font: inherit; font-size: 0.8125rem; color: var(--dim);
-    background: var(--panel); border: 1px solid var(--control); border-radius: 6px;
-    min-height: 34px; padding: 4px 10px; cursor: pointer;
-    max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
-  .chip[aria-pressed='true'] { color: var(--panel); background: var(--accent); border-color: var(--accent); }
-  .older { font-size: 0.8125rem; min-height: 34px; }
+  .filters { display: grid; gap: 8px; margin-bottom: 18px; }
+  .filter-fields, .filter-options { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+  .filter-fields .tool { min-height: 36px; font-size: 0.8125rem; }
+  .filter-fields select { max-width: 100%; }
+  #project { flex: 1 1 150px; min-width: 0; }
+  .filter-options .toggle { min-height: 32px; font-size: 0.8125rem; }
+  .filter-options input { accent-color: var(--accent); }
+  .reset-filters { background: none; border: 0; color: var(--accent); cursor: pointer; padding: 6px; font: inherit; font-size: 0.8125rem; }
+  .reset-filters:hover { text-decoration: underline; }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(290px, 100%), 1fr)); gap: 12px; align-items: stretch; }
   .card {
     position: relative;
@@ -99,11 +96,10 @@
     font-size: 0.8125rem; font-weight: 700; color: var(--dim);
   }
   .search {
-    flex: 0 1 220px; min-width: 0; min-height: 34px; padding: 6px 10px;
+    flex: 2 1 240px; min-width: 0; min-height: 36px; padding: 6px 10px;
     font: inherit; font-size: 0.8125rem; color: var(--ink);
     background: var(--panel); border: 1px solid var(--control); border-radius: 6px;
   }
-  .search[hidden] { display: none; }
   .card.nolink:hover { transform: none; }
   .card svg { display: block; width: 100%; height: auto; }
   .pic { overflow: hidden; border-radius: 6px; background: #e4d4bc; }
@@ -224,7 +220,7 @@
   .compact .act span { display: none; }
   .compact .confirm { flex-direction: row; justify-content: space-between; padding: 6px 8px; font-size: 12px; text-align: start; }
   @media (max-width: 440px) {
-    .filters .search { flex: 1 1 150px; }
+    .filters .search { flex-basis: 100%; }
     .menu { max-width: calc(100vw - 24px); }
   }
   .settings { position: relative; }
@@ -263,9 +259,20 @@
     </div>
   </header>
   <div class="filters">
-    <div class="chips" id="chips"></div>
-    <input class="search" id="search" type="search" autocomplete="off" hidden />
-    <button class="tool older" id="older" type="button" aria-pressed="false" hidden></button>
+    <div class="filter-fields">
+      <input class="search" id="search" type="search" autocomplete="off" />
+      <select class="tool" id="provider" data-t-title="providerLabel">
+        <option value="" data-t="allProviders"></option>
+        <option value="codex">Codex</option>
+        <option value="claude">Claude</option>
+      </select>
+      <select class="tool" id="project" data-t-title="projectLabel"></select>
+      <button class="tool" id="decoration" type="button" data-t-title="theme" hidden>🎨</button>
+    </div>
+    <div class="filter-options">
+      <label class="toggle"><input id="older" type="checkbox" /> <span id="older-label"></span></label>
+      <button class="reset-filters" id="reset-filters" type="button" data-t="resetFilters" hidden></button>
+    </div>
   </div>
   <div class="dropbar" id="dropbar" hidden></div>
   <div class="grid" id="grid"></div>
@@ -315,8 +322,8 @@
   let lang = store.get('lang', '') || guessLang()
   if (!LANGS[lang]) lang = 'es'
   const OFFICE_TEXT = {
-    es: { older: 'Ver anteriores ({n})', recent: 'Solo recientes', emptyRecent: 'No hay chats activos ni recientes.', noMatches: 'Ningún chat coincide con los filtros.', untitledCodex: 'Chat de Codex', settingsLabel: 'Ajustes' },
-    en: { older: 'Show older chats ({n})', recent: 'Recent only', emptyRecent: 'No active or recent chats.', noMatches: 'No chats match the filters.', untitledCodex: 'Codex chat', settingsLabel: 'Settings' },
+    es: { older: 'Incluir anteriores a 24 h ({n})', emptyRecent: 'No hay chats activos ni recientes.', noMatches: 'Ningún chat coincide con los filtros.', untitledCodex: 'Chat de Codex', settingsLabel: 'Ajustes', allProviders: 'Todas las apps', providerLabel: 'Aplicación', allProjects: 'Todos los proyectos', projectLabel: 'Proyecto', resetFilters: 'Limpiar filtros', noResults: '0 chats' },
+    en: { older: 'Include chats older than 24 h ({n})', emptyRecent: 'No active or recent chats.', noMatches: 'No chats match the filters.', untitledCodex: 'Codex chat', settingsLabel: 'Settings', allProviders: 'All apps', providerLabel: 'App', allProjects: 'All projects', projectLabel: 'Project', resetFilters: 'Clear filters', noResults: '0 chats' },
   }
   const T = (key, vars = {}) => {
     const i = KEYS.indexOf(key)
@@ -424,7 +431,9 @@
   const DAY = 24 * 60 * 60 * 1000
   const titleOf = d => d.title || T('untitledCodex')
   const providerOf = d => d.provider === 'codex' ? 'Codex' : 'Claude'
-  let filter = store.get('filter', '')
+  let filter = ''
+  let providerFilter = ''
+  let query = ''
   let confirming = null // { id, action }
   let pipWin = null
   const wasRunning = new Map()
@@ -739,15 +748,22 @@
 
   function render() {
     if (dragId) { renderLater = true; return }
+    const normalize = text => text.toLowerCase().normalize('NFD').replace(/\p{M}/gu, '')
+    const terms = normalize(query.trim()).split(/\s+/).filter(Boolean)
+    const matches = stableOrder(current.desks).filter(d => {
+      if (providerFilter && providerFilter !== (d.provider || 'claude')) return false
+      if (filter && d.project !== filter) return false
+      const text = normalize(`${titleOf(d)} ${providerOf(d)} ${d.project ?? ''} ${d.group ?? ''} ${d.pr ?? ''}`)
+      return terms.every(term => text.includes(term))
+    })
     const cutoff = Date.now() - DAY
     const isOlder = d => !d.isRunning && Date.parse(d.lastActivityAt) <= cutoff
-    const recent = current.desks.filter(d => !isOlder(d))
-    const olderCount = current.desks.length - recent.length
-    const all = showOlder ? current.desks : recent
-    const older = el('older')
-    older.hidden = !olderCount
-    older.textContent = T(showOlder ? 'recent' : 'older', { n: olderCount })
-    older.setAttribute('aria-pressed', String(showOlder))
+    const recent = matches.filter(d => !isOlder(d))
+    const desks = showOlder ? matches : recent
+    const isFiltered = Boolean(terms.length || filter || providerFilter)
+    el('older-label').textContent = T('older', { n: matches.length - recent.length })
+    el('older').checked = showOlder
+    el('reset-filters').hidden = !isFiltered && !showOlder
     const newChat = el('newchat')
     if (newChat) {
       const label = T('newChat') + (current.desks.some(d => d.provider === 'codex') ? ' · Claude' : '')
@@ -755,43 +771,30 @@
       newChat.title = label
       newChat.querySelector('span').textContent = label
     }
-    const working = all.filter(d => d.isRunning).length
+    const working = desks.filter(d => d.isRunning).length
     el('count').innerHTML = !connected
       ? esc(T('connecting'))
-      : all.length
-        ? `<span class="live"><i class="dot" aria-hidden="true"></i>${esc(T('working', { n: working }))}</span><span>${esc(T('paused', { n: all.length - working }))}</span>`
-        : esc(T('noData'))
+      : desks.length
+        ? `<span class="live"><i class="dot" aria-hidden="true"></i>${esc(T('working', { n: working }))}</span><span>${esc(T('paused', { n: desks.length - working }))}</span>`
+        : esc(T('noResults'))
 
-    // filtros por proyecto
-    const projects = [...new Set(all.map(d => d.project))].sort()
-    if (filter && !projects.includes(filter)) filter = ''
-    el('chips').innerHTML = projects.length > 1
-      ? [['', T('all')], ...projects.map(p => [p, p])].map(([v, label]) =>
-          `<button class="chip" type="button" data-f="${esc(v)}" aria-pressed="${filter === v}" title="${esc(label)}">${esc(label)}</button>`).join('')
-      : ''
-    if (filter) {
-      el('chips').insertAdjacentHTML('beforeend',
-        `<button class="chip deco" type="button" data-deco title="${esc(T('theme'))}" aria-label="${esc(T('theme'))}: ${esc(filter)}">🎨 ${esc(T('theme'))}</button>`)
+    const projects = [...new Set([filter, ...current.desks.map(d => d.project)].filter(Boolean))]
+      .sort((a, b) => a.localeCompare(b, lang))
+    const project = el('project')
+    const options = [['', T('allProjects')], ...projects.map(name => [name, name])]
+    const optionKey = JSON.stringify(options)
+    if (project.dataset.options !== optionKey) {
+      project.innerHTML = options.map(([value, label]) => `<option value="${esc(value)}">${esc(label)}</option>`).join('')
+      project.dataset.options = optionKey
     }
-    el('chips').querySelectorAll('.chip').forEach(c => c.addEventListener('click', () => {
-      if ('deco' in c.dataset) cycleTheme(filter)
-      else { filter = c.dataset.f; store.set('filter', filter) }
-      render()
-      fitWindow()
-    }))
+    project.value = filter
+    el('provider').value = providerFilter
+    el('decoration').hidden = !filter
     paintBackground()
 
-    // Buscador (aparece con muchas sesiones) y lista visible.
     const search = el('search')
-    if (search) {
-      search.hidden = all.length <= 6 && !query.trim()
-      search.placeholder = T('search')
-      search.setAttribute('aria-label', T('search'))
-    }
-    const q = query.trim().toLowerCase()
-    const desks = stableOrder(all)
-      .filter(d => !filter || d.project === filter)
-      .filter(d => !q || `${titleOf(d)} ${providerOf(d)} ${d.project} ${d.group ?? ''} ${d.pr ?? ''}`.toLowerCase().includes(q))
+    search.placeholder = T('search')
+    search.setAttribute('aria-label', T('search'))
     markSeen(current.desks)
 
     // Secciones: fijadas, luego cada grupo de la barra lateral, luego sin grupo.
@@ -813,7 +816,7 @@
 
     const grid = el('grid')
     if (!desks.length) {
-      const message = !connected ? 'connecting' : q || filter ? 'noMatches' : 'emptyRecent'
+      const message = !connected ? 'connecting' : isFiltered ? 'noMatches' : 'emptyRecent'
       grid.innerHTML = `<div class="empty">${esc(T(message))}</div>`
       return
     }
@@ -886,13 +889,6 @@
     })
   }
 
-  // ---------- búsqueda ----------
-  let query = ''
-  {
-    const input = document.getElementById('search')
-    input?.addEventListener('input', () => { query = input.value; render(); fitWindow() })
-  }
-
   // ---------- qué está haciendo ----------
   function toolLabel(tool) {
     if (/^(Edit|Write|MultiEdit|NotebookEdit)$/.test(tool)) return T('actEdit')
@@ -941,11 +937,26 @@
 
   // ---------- controles ----------
   function setupControls(d) {
-    d.getElementById('older').onclick = () => {
-      showOlder = !showOlder
+    const search = d.getElementById('search')
+    const provider = d.getElementById('provider')
+    const project = d.getElementById('project')
+    const older = d.getElementById('older')
+    function updateFilters() {
+      query = search.value
+      providerFilter = provider.value
+      filter = project.value
+      showOlder = older.checked
       render()
       fitWindow()
     }
+    search.oninput = provider.onchange = project.onchange = older.onchange = updateFilters
+    d.getElementById('reset-filters').onclick = () => {
+      search.value = provider.value = project.value = ''
+      older.checked = false
+      updateFilters()
+      search.focus()
+    }
+    d.getElementById('decoration').onclick = () => { cycleTheme(filter); render(); fitWindow() }
     const gear = d.getElementById('gear'), menu = d.getElementById('menu')
     if (gear && menu && !gear.dataset.ready) {
       gear.dataset.ready = '1'
@@ -1045,11 +1056,12 @@
     if (!IS_MINI || pipWin) return
     clearTimeout(fitTimer)
     fitTimer = setTimeout(async () => {
-      const key = `${el('grid').children.length}|${el('older').hidden}|${window.innerWidth}|${store.get('folded', '0')}`
+      const appHeight = Math.ceil(document.getElementById('app').getBoundingClientRect().height)
+      const key = `${appHeight}|${window.innerWidth}|${store.get('folded', '0')}`
       if (key === lastFit) return
       lastFit = key
       const chrome = window.outerHeight - window.innerHeight
-      const want = Math.round(Math.min(screen.availHeight * 0.9, Math.max(store.get('folded', '0') === '1' ? 60 : 220, Math.ceil(document.getElementById('app').getBoundingClientRect().height) + chrome)))
+      const want = Math.round(Math.min(screen.availHeight * 0.9, Math.max(store.get('folded', '0') === '1' ? 60 : 220, appHeight + chrome)))
       if (Math.abs(want - window.outerHeight) < 8) return
       const before = window.outerHeight
       try { window.resizeTo(window.outerWidth, want) } catch {}
