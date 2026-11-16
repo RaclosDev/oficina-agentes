@@ -97,7 +97,9 @@ test('los hooks de Codex y las listas de Claude comparten la oficina', { timeout
   assert.equal((await post('/api/action', { action: 'archive', sessionId: id }, false)).status, 403)
   const failure = await post('/api/action', { action: 'archive', sessionId: id })
   assert.equal(failure.status, 502)
-  assert.match((await failure.json()).message, /ENOENT/)
+  // Sin PATH, Windows no encuentra `codex` (ENOENT); Linux y macOS miran en el
+  // directorio actual y tropiezan con la carpeta codex/ del repo (EACCES).
+  assert.match((await failure.json()).message, /ENOENT|EACCES/)
   assert.equal((await snapshot()).desks[1].id, id)
   assert.equal((await post('/api/action', { action: 'delete', sessionId: claudeDesk.id })).status, 400)
   assert.equal((await post('/api/action', { action: 'archive', sessionId: claudeDesk.id })).status, 202)
