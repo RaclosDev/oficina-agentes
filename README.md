@@ -1,31 +1,55 @@
 # Oficina de agentes
 
-Una oficina pixel para tus sesiones de Claude Code y Codex. Cada sesión es un personaje en su escritorio que teclea cuando está trabajando y se echa una siesta cuando está en pausa. La oficina vive en una ventana flotante que se queda siempre encima.
+[![CI](https://github.com/RaclosDev/oficina-agentes/actions/workflows/ci.yml/badge.svg)](https://github.com/RaclosDev/oficina-agentes/actions/workflows/ci.yml)
+[![Licencia: MIT](https://img.shields.io/badge/licencia-MIT-blue.svg)](LICENSE)
+![Node.js 18+](https://img.shields.io/badge/node-%E2%89%A518-339933?logo=node.js&logoColor=white)
+
+Una oficina pixel para tus sesiones de **Claude Code** y **Codex**: cada sesión es un personaje en su escritorio que teclea mientras trabaja y se echa una siesta cuando está en pausa.
+Vive en una ventana flotante siempre encima, así ves de un vistazo qué agente sigue trabajando y cuál te espera.
+
+![La oficina con sesiones de Claude Code y Codex agrupadas](docs/oficina.png)
+
+<sub>Captura con los datos de ejemplo de `npm run demo`.</sub>
 
 ## Qué hace
 
-Claude Code y Codex comparten la ventana flotante, los filtros por proyecto y los avisos al terminar un turno. En Claude Code, la oficina también se integra con la barra lateral y el panel de la app.
+**Ver**
 
-- **Chats activos y recientes** con su título, aplicación, proyecto, PR y tiempo en pausa. Busca por texto, filtra por aplicación o proyecto y marca la casilla para incluir chats en pausa durante al menos 24 horas.
-- **Todos o En línea** para mostrar también los chats guardados o limitar la vista a los agentes con sesión abierta, en pantalla o trabajando.
-- **Ventana flotante siempre encima y sin bordes** (Windows): se arrastra desde el título, se cierra con × y se redimensiona desde la esquina inferior derecha. Se ajusta al número de sesiones y se pliega con ▾. Cerrar la ventana no detiene los chats. En otros sistemas usa el Picture-in-Picture del navegador.
-- **Modo claro, oscuro o según el sistema**, desde ⚙ → Apariencia. La elección se guarda y es independiente del color de los escritorios.
-- **Un clic para ir al chat** en Claude o Codex.
-- **Archiva o elimina chats en pausa** desde su tarjeta en Claude o Codex. Los botones aparecen al pasar el ratón o al entrar con el teclado y están siempre visibles en pantallas táctiles. Sin confirmaciones ni avisos de éxito añadidos por la Oficina; el borrado mantiene la aprobación propia de la app. Los errores y otros avisos aparecen junto al buscador sin tapar las tarjetas.
-- **Como una barra lateral**: marca la sesión que tienes abierta, pone «Nuevo» en las que han terminado desde la última vez que las viste, y agrupa por tus grupos de la barra lateral con las fijadas arriba.
-- **Qué está haciendo cada una**: «Editando archivos…», «Ejecutando comandos…» mientras trabaja, o la primera frase de su último mensaje cuando para.
-- **Todo lo de la barra lateral en el menú ⋯** de cada tarjeta: abrir, fijar, renombrar, mover a otro grupo, marcar como no leída, detener, archivar y eliminar (detener pide confirmación; eliminar conserva la aprobación de la app).
-- **Arrastra una tarjeta** a otro grupo, a Fijadas o a Sin grupo: aparece una barra para soltarla, y también vale soltarla sobre una sección o sobre otra tarjeta.
-- **＋ Nuevo chat** en la cabecera.
-- **Colores a elección** para el suelo y la alfombra. Elige un color general o selecciona un proyecto y asígnale su propio color. La selección queda guardada en el navegador.
-- **Aviso cuando una sesión termina** (sonido y notificación del sistema), opcional.
-- **20 idiomas**, en la rueda ⚙: español, inglés, chino, hindi, francés, árabe, bengalí, portugués, ruso, urdu, indonesio, alemán, japonés, maratí, telugu, turco, tamil, vietnamita, coreano e italiano.
+- Una tarjeta por sesión con su título, aplicación, proyecto, PR, estado y tiempo en pausa.
+- Qué está haciendo cada una: «Editando archivos…» mientras trabaja, o la primera frase de su último mensaje cuando para.
+- La sesión que tienes abierta queda marcada, y las que han terminado desde la última vez que las viste llevan «Nuevo».
+- Buscador y filtros por aplicación, por proyecto y por presencia (todas o solo en línea).
+
+**Actuar**
+
+- Un clic en una tarjeta te lleva a ese chat en Claude o en Codex.
+- Menú ⋯ con lo mismo que la barra lateral de Claude: fijar, renombrar, mover de grupo, marcar como no leída, detener, archivar y eliminar.
+- Arrastra una tarjeta a otro grupo, a Fijadas o a Sin grupo.
+- Aviso opcional (sonido y notificación del sistema) cuando una sesión termina.
+
+**Personalizar**
+
+- Ventana flotante sin bordes que se ajusta al número de sesiones y se pliega.
+- Modo claro, oscuro o el del sistema, y colores de suelo y alfombra por proyecto.
+- 20 idiomas.
+
+<details>
+<summary>Vista compacta de la ventana flotante</summary>
+
+<img src="docs/ventana-flotante.png" alt="Vista compacta de la ventana flotante" width="340">
+
+</details>
+
+## Requisitos
+
+- **Node.js 18 o superior** en el PATH. El servidor local no tiene dependencias.
+- Para la ventana flotante siempre encima: **Windows con Microsoft Edge**.
 
 ## Instalación
 
 ### Claude Code
 
-En la app de escritorio de Claude: pulsa **+** junto al cuadro de mensaje → **Plugins** → **Add marketplace** con `RaclosDev/oficina-agentes` → **Add plugin** → **oficina-agentes**.
+En la app de escritorio: **+** junto al cuadro de mensaje → **Plugins** → **Add marketplace** con `RaclosDev/oficina-agentes` → **Add plugin** → **oficina-agentes**.
 
 En una sesión de terminal:
 
@@ -39,34 +63,36 @@ Desde una shell:
 claude plugin install oficina-agentes --marketplace RaclosDev/oficina-agentes
 ```
 
-Necesita **Node.js 18 o superior** en el PATH (el plugin arranca un pequeño servidor local) y, para la ventana flotante fija, Windows con Microsoft Edge.
-
 ### Codex
 
-Con una versión de Codex que admita plugins con hooks y **Node.js 18 o superior** en el PATH, instala el plugin desde una terminal:
+Con una versión de Codex que admita plugins con hooks:
 
 ```bash
 codex plugin marketplace add RaclosDev/oficina-agentes
+```
+
+```bash
 codex plugin add oficina-agentes@oficina-agentes
 ```
 
-Abre Codex en la terminal, escribe `/hooks` y revisa y habilita los hooks de **oficina-agentes**. Abre o reanuda un chat local y envía un mensaje. La oficina arranca en [127.0.0.1:3210](http://127.0.0.1:3210). Pulsa **Flotar** para abrir la ventana flotante. Cada tarjeta de Codex muestra el proyecto y el estado del turno y permite abrir el chat en la app de escritorio.
+Abre Codex en la terminal, escribe `/hooks` y habilita los hooks de **oficina-agentes**. Al enviar el primer mensaje de un chat local, la oficina arranca en <http://127.0.0.1:3210>.
 
-Si ya usabas la oficina con Claude, actualiza también su plugin y reinicia el proceso de Node que sirve la oficina para cargar la nueva versión. Ambos plugins comparten el puerto 3210.
-
-Al arrancar, la oficina carga hasta 50 chats locales sin archivar desde `codex` en el PATH. Los hooks actualizan el estado de los turnos en directo. Los grupos y el menú ⋯ corresponden a Claude. En Windows, archivar y eliminar se envían al conector local `codex-app-tools` de la app de Codex, que puede gestionar sus chats cargados sin competir por el bloqueo de escritura. El borrado conserva la confirmación de Codex: después de pulsar Eliminar en la Oficina, apruébalo en Codex. La Oficina debe arrancar desde un chat de Codex (o recibir un hook) para identificar el chat de origen de estas acciones. Si no hay conector disponible, se usa el servidor de aplicaciones de `codex` en el PATH; esa alternativa solo puede modificar chats que la app no mantenga cargados. Con varias instancias de escritorio abiertas, configura `CODEX_APP_TOOLS_PIPE_PATH` para indicar el conector correspondiente.
+Los dos plugins comparten servidor y puerto. Si ya usabas la oficina con Claude, actualiza también ese plugin y reinicia el proceso de Node que la sirve.
 
 ## Uso
 
-- `/oficina` abre la ventana flotante (o la página en tu navegador si no se puede fijar).
-- `/oficina-panel` abre la oficina junto al chat, dentro de Claude.
-- `/oficina-permisos` te dice si ya tienes los permisos que necesitan las acciones del menú.
+| Dónde | Cómo |
+| --- | --- |
+| Claude Code | `/oficina` abre la ventana flotante (o la página en tu navegador si no se puede fijar). |
+| Claude Code | `/oficina-panel` abre la oficina junto al chat, dentro de la app. |
+| Claude Code | `/oficina-permisos` indica si faltan permisos para las acciones del menú. |
+| Navegador | <http://127.0.0.1:3210> con el servidor en marcha; **Flotar** abre la ventana flotante. |
 
-La página está en `http://127.0.0.1:3210` cuando el servidor local está en marcha.
+Cerrar la ventana no detiene ningún chat.
 
-## Permisos
+### Permisos en Claude Code
 
-Un plugin no puede concederse permisos a sí mismo. Para que las acciones del menú funcionen sin que te pregunte cada vez (y en modo automático), añade estas reglas a `permissions.allow` en `~/.claude/settings.json`:
+Un plugin no puede concederse permisos a sí mismo. Para que las acciones del menú funcionen sin preguntar cada vez, añade estas reglas a `permissions.allow` en `~/.claude/settings.json`:
 
 ```json
 "mcp__ccd_session_mgmt__stop_session",
@@ -77,16 +103,58 @@ Un plugin no puede concederse permisos a sí mismo. Para que las acciones del me
 "mcp__ccd_sidebar__set_unread"
 ```
 
-La primera vez que se carga, el plugin te avisa si faltan. Eliminar una sesión siempre pide tu aprobación, tengas las reglas o no.
+Eliminar una sesión siempre pide tu aprobación, tengas las reglas o no.
 
 ## Cómo funciona
 
-Cada sesión de Claude con el plugin pide a la app la lista de sesiones cada 15 segundos y la envía a un servidor local sin dependencias (`server/server.mjs`), que solo escucha en `127.0.0.1:3210`. La página recibe los cambios al momento. Las acciones (detener, archivar, eliminar) que pides en la página las ejecuta una sesión de Claude a través de la app, con tus permisos de siempre. Abrir una sesión pasa su enlace `claude://` al sistema.
+```
+Claude Code ── hooks/register.tsx ──┐  lista de sesiones cada 15 s
+                                    ├─▶ server/server.mjs ── SSE ──▶ server/index.html
+Codex ──────── codex/report.mjs ────┘   127.0.0.1:3210               (página y ventana flotante)
+```
 
-Los hooks de Codex envían al mismo servidor el tipo de evento, los identificadores del chat y del turno y el nombre de la carpeta. El servidor consulta los chats locales desde el servidor de aplicaciones de Codex y actualiza sus títulos con el índice local (`session_index.jsonl`). La página recibe solo los datos de las tarjetas y abre sus enlaces `codex://threads/…` en la app.
+- **Servidor** ([server/server.mjs](server/server.mjs)): HTTP sin dependencias que solo escucha en `127.0.0.1`. Guarda el estado en memoria y lo envía a la página por Server-Sent Events.
+- **Claude Code** ([hooks/register.tsx](hooks/register.tsx)): el mod pide a la app la lista de sesiones, la envía al servidor y ejecuta, con tus permisos de siempre, las acciones que la página encola (detener, archivar, fijar…).
+- **Codex** ([codex/](codex)): los hooks envían el tipo de evento, los identificadores del chat y del turno y el nombre de la carpeta. El servidor completa la lista con el servidor de aplicaciones de `codex` y los títulos con su índice local. Archivar y eliminar pasan por el conector de la app de escritorio y conservan su confirmación.
+- **Ventana flotante** ([server/window.mjs](server/window.mjs), [server/pin.ps1](server/pin.ps1)): Edge en modo app, sin bordes y siempre encima mediante la API de Windows.
 
-El servidor solo acepta escrituras con una cabecera propia que una web ajena no puede enviar. Los datos de la oficina se quedan en tu ordenador.
+**Privacidad y seguridad.** Los datos no salen de tu ordenador. El servidor solo acepta escrituras con una cabecera propia que una web ajena no puede enviar, y solo abre enlaces `claude://` y `codex://` de sesión.
+
+## Desarrollo
+
+No hay nada que instalar: clona el repositorio y usa los scripts.
+
+| Comando | Qué hace |
+| --- | --- |
+| `npm test` | Tests del servidor, de la integración con Codex y de los manifiestos (`node --test`). |
+| `npm run test:mod` | Tests del mod de Claude Code (`hooks/*.test.tsx`). Necesita la CLI `claude`. |
+| `npm run validate` | Valida los manifiestos del plugin. Necesita la CLI `claude`. |
+| `npm run demo` | Arranca la oficina con sesiones de ejemplo en <http://127.0.0.1:3211>. |
+| `npm start` | Arranca el servidor en el puerto 3210 (`OFICINA_PORT` para cambiarlo). |
+
+La integración continua ejecuta los tests en cada push y pull request a `main`.
+
+```
+.claude-plugin/   manifiesto y marketplace del plugin de Claude Code
+.codex-plugin/    manifiesto del plugin de Codex (.agents/ es su marketplace)
+hooks/            mod de Claude Code y sus tests
+codex/            hooks de Codex, lectura de chats y conector de escritorio
+server/           servidor local, página y ventana flotante
+scripts/          datos de ejemplo
+```
+
+## Limitaciones
+
+- La ventana flotante propia solo existe en Windows con Edge; en otros sistemas la página recurre al Picture-in-Picture del navegador.
+- Los grupos y el menú ⋯ completo son de Claude Code. En Codex se puede abrir, archivar y eliminar.
+- Archivar y eliminar chats de Codex necesita la app de escritorio en Windows; sin ella solo se pueden modificar los chats que la app no tenga cargados. Con varias instancias abiertas hay que indicar el conector con `CODEX_APP_TOOLS_PIPE_PATH`.
+- Se cargan como máximo 40 sesiones de Claude Code y 50 chats de Codex.
+- El estado vive en memoria: al reiniciar el servidor la oficina se rellena con el siguiente envío.
 
 ## Licencia
 
-MIT
+[MIT](LICENSE)
+
+## Autor
+
+**Carlos Sanz Tomero** · [raclosdev.github.io](https://raclosdev.github.io) · [LinkedIn](https://www.linkedin.com/in/carlos-sanz-tomero/)

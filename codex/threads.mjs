@@ -48,7 +48,7 @@ function withCodex(onReady, onMessage, fallback, timeoutMs = 4000) {
       id: 1,
       method: 'initialize',
       params: {
-        clientInfo: { name: 'oficina-agentes', version: '0.1.0' },
+        clientInfo: { name: 'oficina-agentes', version: '0.5.0' },
         capabilities: { experimentalApi: true },
       },
     })
