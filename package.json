@@ -1,0 +1,19 @@
+{
+  "name": "oficina-agentes",
+  "version": "0.5.0",
+  "private": true,
+  "description": "Una oficina pixel con todas tus sesiones de Claude Code y Codex en una ventana flotante siempre encima.",
+  "license": "MIT",
+  "author": "Carlos Sanz Tomero (https://raclosdev.github.io)",
+  "homepage": "https://github.com/RaclosDev/oficina-agentes#readme",
+  "repository": { "type": "git", "url": "git+https://github.com/RaclosDev/oficina-agentes.git" },
+  "bugs": "https://github.com/RaclosDev/oficina-agentes/issues",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "start": "node server/server.mjs",
+    "demo": "node scripts/demo.mjs",
+    "test": "node --test",
+    "test:mod": "claude plugin test .",
+    "validate": "claude plugin validate ."
+  }
+}

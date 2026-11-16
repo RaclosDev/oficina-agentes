@@ -67,7 +67,7 @@ function projectOf(cwd: string | undefined): string {
 }
 
 // ---------- dibujo ----------
-// Mismo dibujo que la página del navegador (oficina-server/index.html).
+// Mismo dibujo que la página del navegador (server/index.html).
 
 const SHIRTS = ['#e4572e', '#29335c', '#f3a712', '#669bbc', '#8f2d56', '#2a9d8f', '#7b2cbf', '#d62828']
 const HAIRS = ['#2b1d14', '#6b3e26', '#d9a441', '#1b1b1b', '#a23b2a', '#5c5c5c']
@@ -805,9 +805,6 @@ export const register: Register = on => {
     return { text: 'Oficina abierta en el navegador: pulsa «Flotar» para dejarla siempre encima.' }
   })
 
-  // El panel propio de un mod solo admite los componentes de la app (sus botones,
-  // su letra), así que nunca queda igual que la página. Se abre la página real en
-  // el navegador integrado de Claude, junto al chat; si no se puede, el panel simple.
   on('command.run', { command: 'oficina-permisos' }, async $ => {
     const missing = await missingPermissions($)
     if (missing.length === 0) {
@@ -816,6 +813,9 @@ export const register: Register = on => {
     return { text: `${SETUP_TEXT}\n\nTe faltan: ${missing.join(', ')}` }
   })
 
+  // El panel propio de un mod solo admite los componentes de la app (sus botones,
+  // su letra), así que nunca queda igual que la página. Se abre la página real en
+  // el navegador integrado de Claude, junto al chat; si no se puede, el panel simple.
   on('command.run', { command: 'oficina-panel' }, async $ => {
     await refresh($)
     let why = ''
